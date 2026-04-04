@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conversation Viewer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: #1a1a1a; color: #e0e0e0; line-height: 1.6;
+  }
+  #drop-zone {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 2rem; text-align: center;
+  }
+  #drop-zone.has-content { display: none; }
+  #drop-zone h1 { font-size: 1.8rem; margin-bottom: 1rem; color: #fff; }
+  #drop-zone p { color: #888; margin-bottom: 1.5rem; }
+  #drop-zone.dragover { background: #252525; }
+  .file-input-label {
+    display: inline-block; padding: 0.75rem 1.5rem; background: #d4a574;
+    color: #1a1a1a; border-radius: 8px; cursor: pointer; font-weight: 600;
+    transition: background 0.2s;
+  }
+  .file-input-label:hover { background: #e0b688; }
+  #file-input { display: none; }
+
+  #app { display: none; max-width: 900px; margin: 0 auto; padding: 1rem; }
+  #app.visible { display: block; }
+
+  #sidebar-toggle {
+    position: fixed; top: 1rem; left: 1rem; z-index: 1001;
+    background: #2a2a2a; border: 1px solid #444; color: #e0e0e0;
+    padding: 0.5rem 0.75rem; border-radius: 6px; cursor: pointer; font-size: 1rem;
+  }
+  #sidebar {
+    position: fixed; top: 0; left: -320px; width: 300px; height: 100vh;
+    background: #222; border-right: 1px solid #444; z-index: 1000;
+    transition: left 0.3s; overflow-y: auto; padding: 3.5rem 1rem 1rem;
+  }
+  #sidebar.open { left: 0; }
+  .convo-item {
+    padding: 0.6rem 0.75rem; margin-bottom: 0.25rem; border-radius: 6px;
+    cursor: pointer; color: #ccc; font-size: 0.85rem; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .convo-item:hover { background: #333; }
+  .convo-item.active { background: #3a3a3a; color: #fff; }
+
+  .convo-header {
+    text-align: center; padding: 1.5rem 0 1rem; border-bottom: 1px solid #333;
+    margin-bottom: 1.5rem;
+  }
+  .convo-header h2 { color: #fff; font-size: 1.3rem; margin-bottom: 0.25rem; }
+  .convo-header .meta { color: #888; font-size: 0.8rem; }
+
+  .message {
+    margin-bottom: 1.5rem; padding: 1rem 1.25rem; border-radius: 10px;
+    max-width: 85%; white-space: pre-wrap; word-wrap: break-word;
+  }
+  .message.human {
+    background: #2a2a3a; margin-left: auto; border: 1px solid #3a3a5a;
+  }
+  .message.assistant {
+    background: #2a2f2a; margin-right: auto; border: 1px solid #3a5a3a;
+  }
+  .message .role {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
+    margin-bottom: 0.4rem; font-weight: 600;
+  }
+  .message.human .role { color: #8888cc; }
+  .message.assistant .role { color: #88aa88; }
+  .message .content { font-size: 0.95rem; }
+  .message .content img { max-width: 100%; border-radius: 6px; margin: 0.5rem 0; }
+  .message .thinking {
+    background: #333; padding: 0.6rem 0.8rem; border-radius: 6px;
+    margin-bottom: 0.5rem; font-size: 0.85rem; color: #aaa;
+    border-left: 3px solid #666;
+  }
+  .message .thinking summary { cursor: pointer; color: #999; font-style: italic; }
+  .message .attachments { font-size: 0.8rem; color: #999; margin-top: 0.5rem; }
+
+  #load-more { display: none; text-align: center; padding: 1rem; }
+  #load-more button {
+    padding: 0.5rem 1.5rem; background: #333; color: #ccc; border: 1px solid #555;
+    border-radius: 6px; cursor: pointer;
+  }
+
+  .search-box {
+    padding: 0.5rem; margin-bottom: 0.5rem;
+  }
+  .search-box input {
+    width: 100%; padding: 0.4rem 0.6rem; background: #2a2a2a; border: 1px solid #444;
+    color: #e0e0e0; border-radius: 4px; font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+
+<div id="drop-zone">
+  <h1>Conversation Viewer</h1>
+  <p>Drop your exported JSON file(s) here, or click to browse.<br>
+     Supports Claude.ai conversation exports.</p>
+  <label class="file-input-label">
+    Choose JSON files
+    <input type="file" id="file-input" accept=".json" multiple>
+  </label>
+</div>
+
+<button id="sidebar-toggle" style="display:none;">&#9776;</button>
+<div id="sidebar">
+  <div class="search-box"><input type="text" id="search" placeholder="Search conversations..."></div>
+  <div id="convo-list"></div>
+</div>
+
+<div id="app">
+  <div id="convo-header" class="convo-header"></div>
+  <div id="messages"></div>
+  <div id="load-more"><button onclick="loadMore()">Load more messages</button></div>
+</div>
+
+<script>
+let conversations = [];
+let currentConvo = null;
+let displayedCount = 0;
+const BATCH = 50;
+
+// --- File loading ---
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+function handleFiles(files) {
+  const readers = [];
+  for (const f of files) {
+    if (!f.name.endsWith('.json')) continue;
+    readers.push(new Promise(resolve => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.readAsText(f);
+    }));
+  }
+  Promise.all(readers).then(results => {
+    for (const text of results) {
+      try {
+        const data = JSON.parse(text);
+        // Handle different export shapes
+        if (Array.isArray(data)) {
+          conversations.push(...data);
+        } else if (data.chat_messages || data.messages) {
+          conversations.push(data);
+        } else if (data.conversations) {
+          conversations.push(...data.conversations);
+        } else {
+          // Single conversation object with unknown shape - just add it
+          conversations.push(data);
+        }
+      } catch (e) {
+        console.error('Failed to parse JSON:', e);
+      }
+    }
+    // Sort by created date descending
+    conversations.sort((a, b) => {
+      const da = a.created_at || a.create_time || '';
+      const db = b.created_at || b.create_time || '';
+      return db.localeCompare(da);
+    });
+    showApp();
+  });
+}
+
+function showApp() {
+  dropZone.classList.add('has-content');
+  document.getElementById('app').classList.add('visible');
+  document.getElementById('sidebar-toggle').style.display = 'block';
+  renderList();
+  if (conversations.length > 0) selectConvo(0);
+}
+
+// --- Sidebar ---
+function renderList(filter = '') {
+  const list = document.getElementById('convo-list');
+  const lc = filter.toLowerCase();
+  list.innerHTML = '';
+  conversations.forEach((c, i) => {
+    const name = c.name || c.title || `Conversation ${i + 1}`;
+    if (lc && !name.toLowerCase().includes(lc)) return;
+    const div = document.createElement('div');
+    div.className = 'convo-item' + (c === currentConvo ? ' active' : '');
+    div.textContent = name;
+    div.onclick = () => selectConvo(i);
+    list.appendChild(div);
+  });
+}
+
+document.getElementById('search').addEventListener('input', e => renderList(e.target.value));
+document.getElementById('sidebar-toggle').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('open');
+});
+
+// --- Display ---
+function selectConvo(idx) {
+  currentConvo = conversations[idx];
+  displayedCount = 0;
+  renderList(document.getElementById('search').value);
+  document.getElementById('sidebar').classList.remove('open');
+
+  const header = document.getElementById('convo-header');
+  const name = currentConvo.name || currentConvo.title || 'Untitled';
+  const created = formatDate(currentConvo.created_at || currentConvo.create_time);
+  const updated = formatDate(currentConvo.updated_at || currentConvo.update_time);
+  header.innerHTML = `<h2>${esc(name)}</h2>
+    <div class="meta">${created ? 'Created: ' + created : ''}${updated ? ' &middot; Updated: ' + updated : ''}</div>`;
+
+  document.getElementById('messages').innerHTML = '';
+  loadMore();
+}
+
+function getMessages(convo) {
+  // Claude.ai export: chat_messages array
+  if (convo.chat_messages) return convo.chat_messages;
+  // Alternative shape
+  if (convo.messages) return convo.messages;
+  // ChatGPT-style: mapping object
+  if (convo.mapping) {
+    const nodes = Object.values(convo.mapping).filter(n => n.message).sort((a, b) => {
+      const ta = a.message.create_time || 0;
+      const tb = b.message.create_time || 0;
+      return ta - tb;
+    });
+    return nodes.map(n => n.message);
+  }
+  return [];
+}
+
+function loadMore() {
+  const msgs = getMessages(currentConvo);
+  const end = Math.min(displayedCount + BATCH, msgs.length);
+  const container = document.getElementById('messages');
+
+  for (let i = displayedCount; i < end; i++) {
+    container.appendChild(renderMessage(msgs[i]));
+  }
+  displayedCount = end;
+
+  const btn = document.getElementById('load-more');
+  btn.style.display = displayedCount < msgs.length ? 'block' : 'none';
+}
+
+function renderMessage(msg) {
+  const div = document.createElement('div');
+  const role = msg.sender || msg.role || msg.author?.role || 'unknown';
+  const isHuman = role === 'human' || role === 'user';
+  div.className = `message ${isHuman ? 'human' : 'assistant'}`;
+
+  let html = `<div class="role">${esc(role)}</div>`;
+
+  // Handle thinking/reasoning
+  const thinking = extractThinking(msg);
+  if (thinking) {
+    html += `<details class="thinking"><summary>Thinking...</summary>${esc(thinking)}</details>`;
+  }
+
+  // Main content
+  const text = extractText(msg);
+  if (text) {
+    html += `<div class="content">${esc(text)}</div>`;
+  }
+
+  // Attachments
+  const attachments = msg.attachments || msg.files || [];
+  if (attachments.length) {
+    html += `<div class="attachments">📎 ${attachments.map(a => esc(a.file_name || a.name || 'file')).join(', ')}</div>`;
+  }
+
+  div.innerHTML = html;
+  return div;
+}
+
+function extractText(msg) {
+  // Claude.ai: content is array of {type, text} blocks
+  if (Array.isArray(msg.content)) {
+    return msg.content
+      .filter(b => b.type === 'text' || typeof b === 'string')
+      .map(b => typeof b === 'string' ? b : b.text || '')
+      .join('\n');
+  }
+  if (typeof msg.content === 'string') return msg.content;
+  if (typeof msg.text === 'string') return msg.text;
+  // ChatGPT style
+  if (msg.content?.parts) return msg.content.parts.join('\n');
+  return '';
+}
+
+function extractThinking(msg) {
+  if (Array.isArray(msg.content)) {
+    const blocks = msg.content.filter(b => b.type === 'thinking' || b.type === 'reasoning');
+    if (blocks.length) return blocks.map(b => b.thinking || b.text || '').join('\n');
+  }
+  return '';
+}
+
+function formatDate(d) {
+  if (!d) return '';
+  try {
+    const date = typeof d === 'number' ? new Date(d * 1000) : new Date(d);
+    return date.toLocaleString();
+  } catch { return ''; }
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>
