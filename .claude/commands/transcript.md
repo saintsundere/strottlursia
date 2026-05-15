@@ -1,0 +1,1 @@
+Run `python3 convert-session.py` in the repo root. List the available sessions for the user. Ask which session they want converted. Run the script with their choice. After conversion, commit and push the resulting .txt file from the Projects folder so the user can download it from the repo.
