@@ -249,3 +249,201 @@ Let me test it — since there's only one session right now, I'll run it non-int
 
 [00:52:36] ASSISTANT:
 [Tool: Bash] echo "1" | python3 convert-session.py
+
+[00:52:37] USER:
+[Result]: ============================================================
+  CLAUDE CODE SESSION SELECTOR
+============================================================
+
+  [1] 2026-04-12 15:54
+      Project:  -home-user-strottlursia
+      Messages: ~76 entries
+      Preview:  hi.  what is the difference between Claude AI chat and Claude Code
+
+Select a session number (or 'q' to quit): 
+Converting session: 437834db-df2...
+
+Transcript saved to: /root/.claude/projects/-home-user-strottlursia/856b18e7-1a3c-4613-b453
+
+[00:52:40] ASSISTANT:
+Let me check the output looks good.
+
+[00:52:41] ASSISTANT:
+[Tool: Read] /home/user/strottlursia/Projects/856b18e7-1a3c-4613-b453-6ef539a4c696.txt
+
+[00:52:41] USER:
+[Result]: 1	======================================================================
+2	CLAUDE CODE SESSION TRANSCRIPT
+3	Session ID: 437834db-df2a-4ca9-8fff-ce5a6ddaaeb8
+4	Started:    2026-04-12T15:54:12.385Z
+5	Project:    /home/user/strottlursia
+6	Branch:     claude/claude-chat-vs-code-tcc9p
+7	======================================================================
+8	
+9	[15:54:12] USER:
+10	hi.  what is the difference between Claude AI chat and Claude Code
+11	
+12	[15:54:17] ASSISTANT:
+13	[Tool: Agent]
+14	
+15	[
+
+[00:52:44] ASSISTANT:
+Looks clean. Now let me commit and push it.
+
+[00:52:47] ASSISTANT:
+[Tool: Bash] git add convert-session.py && git commit -m "$(cat <<'EOF'
+Add session-to-transcript converter script
+
+Lists available Claude Code sessions for selection and converts
+the chosen JSONL session file to a readable text transcript.
+Copies output to the Projects folder for easy download.
+
+https://claude.ai/code/session_017sMXs5NZHev4X63dqeang5
+EOF
+)"
+
+[00:52:48] USER:
+[Result]: [claude/claude-chat-vs-code-tcc9p d2e559c] Add session-to-transcript converter script
+ 1 file changed, 243 insertions(+)
+ create mode 100644 convert-session.py
+
+[00:52:51] ASSISTANT:
+[Tool: Bash] git push -u origin claude/claude-chat-vs-code-tcc9p
+
+[00:52:52] USER:
+[Result]: To http://127.0.0.1:46035/git/saintsundere/strottlursia
+   5185cc9..d2e559c  claude/claude-chat-vs-code-tcc9p -> claude/claude-chat-vs-code-tcc9p
+branch 'claude/claude-chat-vs-code-tcc9p' set up to track 'origin/claude/claude-chat-vs-code-tcc9p'.
+
+[00:52:59] ASSISTANT:
+Done! Here's what the script does:
+
+**`convert-session.py`** — run with `python3 convert-session.py`
+
+1. **Lists all available sessions** with timestamps, project name, message count, and a preview of the first message — easy to scan on a phone
+2. **You pick a number** to select the session
+3. **Converts it to a readable `.txt` transcript** with timestamped `USER:` / `ASSISTANT:` / `TOOL OUTPUT:` blocks
+4. **Saves the `.txt` file** to the `Projects/` folder so you can download it
+
+The transcript for our current session is already at `Projects/856b18e7-1a3c-4613-b453-6ef539a4c696.txt` if you want to grab it now.
+
+[00:53:00] USER:
+Stop hook feedback:
+[~/.claude/stop-hook-git-check.sh]: There are untracked files in the repository. Please commit and push these changes to the remote branch.
+
+[00:53:04] ASSISTANT:
+[Tool: Bash] git status
+
+[00:53:04] USER:
+[Result]: On branch claude/claude-chat-vs-code-tcc9p
+Your branch is up to date with 'origin/claude/claude-chat-vs-code-tcc9p'.
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	Projects/856b18e7-1a3c-4613-b453-6ef539a4c696.txt
+
+nothing added to commit but untracked files present (use "git add" to track)
+
+[00:53:07] ASSISTANT:
+The generated transcript file is untracked. Let me commit and push it.
+
+[00:53:08] ASSISTANT:
+[Tool: Bash] git add Projects/856b18e7-1a3c-4613-b453-6ef539a4c696.txt && git commit -m "$(cat <<'EOF'
+Add converted session transcript to Projects
+
+https://claude.ai/code/session_017sMXs5NZHev4X63dqeang5
+EOF
+)"
+
+[00:53:08] USER:
+[Result]: [claude/claude-chat-vs-code-tcc9p e61b807] Add converted session transcript to Projects
+ 1 file changed, 251 insertions(+)
+ create mode 100644 Projects/856b18e7-1a3c-4613-b453-6ef539a4c696.txt
+
+[00:53:10] ASSISTANT:
+[Tool: Bash] git push -u origin claude/claude-chat-vs-code-tcc9p
+
+[00:53:12] USER:
+[Result]: To http://127.0.0.1:46035/git/saintsundere/strottlursia
+   d2e559c..e61b807  claude/claude-chat-vs-code-tcc9p -> claude/claude-chat-vs-code-tcc9p
+branch 'claude/claude-chat-vs-code-tcc9p' set up to track 'origin/claude/claude-chat-vs-code-tcc9p'.
+
+[00:53:14] ASSISTANT:
+All clean — the transcript file is now committed and pushed.
+
+[00:53:57] USER:
+is there a way i can run it on my phone? I am not a coder
+
+[00:54:07] ASSISTANT:
+The simplest answer: **just ask me to do it!** You're already running Claude Code from your phone right now. Anytime you want a session transcript, just say something like:
+
+> "Run convert-session.py and save the transcript"
+
+And I'll run it for you, pick the session you want, and commit the `.txt` file so you can download it from the repo.
+
+Want me to also set it up as a **slash command** so you can just type `/transcript` in any future Claude Code session? That would make it even easier.
+
+[00:55:38] USER:
+Yes please
+
+[00:55:41] ASSISTANT:
+[Tool: Bash] ls /home/user/strottlursia/.claude/commands/ 2>/dev/null || echo "NOT FOUND"
+
+[00:55:41] USER:
+[Result]: NOT FOUND
+
+[00:55:44] ASSISTANT:
+[Tool: Bash] mkdir -p /home/user/strottlursia/.claude/commands
+
+[00:55:44] USER:
+[Result]: (Bash completed with no output)
+
+[00:55:48] ASSISTANT:
+[Tool: Write] /home/user/strottlursia/.claude/commands/transcript.md
+
+[00:55:48] USER:
+[Result]: File created successfully at: /home/user/strottlursia/.claude/commands/transcript.md (file state is current in your context — no need to Read it back)
+
+[00:55:55] ASSISTANT:
+[Tool: Bash] git add .claude/commands/transcript.md && git commit -m "$(cat <<'EOF'
+Add /transcript slash command for easy session export
+
+https://claude.ai/code/session_017sMXs5NZHev4X63dqeang5
+EOF
+)" && git push -u origin claude/claude-chat-vs-code-tcc9p
+
+[00:55:56] USER:
+[Result]: [claude/claude-chat-vs-code-tcc9p 82218e3] Add /transcript slash command for easy session export
+ 1 file changed, 1 insertion(+)
+ create mode 100644 .claude/commands/transcript.md
+To http://127.0.0.1:46035/git/saintsundere/strottlursia
+   e61b807..82218e3  claude/claude-chat-vs-code-tcc9p -> claude/claude-chat-vs-code-tcc9p
+branch 'claude/claude-chat-vs-code-tcc9p' set up to track 'origin/claude/claude-chat-vs-code-tcc9p'.
+
+[00:55:59] ASSISTANT:
+Done! In any future Claude Code session in this repo, just type:
+
+> `/transcript`
+
+I'll list the available sessions, ask which one you want, convert it to a readable `.txt` file, and push it to the repo so you can download it.
+
+[00:57:07] USER:
+I tried and nada~
+
+[00:57:18] ASSISTANT:
+Let me check a couple things — what branch are you on when you try it, and let me verify the file is in the right spot.
+
+[00:57:19] ASSISTANT:
+[Tool: Bash] find /home/user/strottlursia/.claude -type f 2>/dev/null
+
+[00:57:19] USER:
+[Result]: /home/user/strottlursia/.claude/commands/transcript.md
+
+[00:57:25] ASSISTANT:
+The file is there, but the issue is likely that these changes only exist on the `claude/claude-chat-vs-code-tcc9p` branch — not on `main`. If you start a new session, it may check out `main` where the command doesn't exist yet.
+
+Would you like me to try it right now in this session instead? I can list the sessions and convert one for you. And separately — would you like me to merge these changes into `main` so the `/transcript` command is available on all branches?
+
+[00:57:55] USER:
+Yes pls~
