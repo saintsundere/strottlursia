@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Export — Shape Inspector</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    max-width: 820px; margin: 0 auto; padding: 24px; line-height: 1.5;
+  }
+  h1 { font-size: 1.4rem; margin-bottom: .2rem; }
+  .sub { color: #888; margin-top: 0; }
+  #drop {
+    border: 2px dashed #888; border-radius: 12px; padding: 40px 20px;
+    text-align: center; cursor: pointer; transition: .15s; margin: 20px 0;
+  }
+  #drop.hover { border-color: #4a90d9; background: rgba(74,144,217,.08); }
+  #drop strong { font-size: 1.05rem; }
+  .opts { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
+  textarea {
+    width: 100%; min-height: 340px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px; padding: 12px; border-radius: 8px; border: 1px solid #888;
+    box-sizing: border-box; white-space: pre;
+  }
+  button {
+    font-size: .95rem; padding: 8px 16px; border-radius: 8px; border: 1px solid #888;
+    background: #4a90d9; color: #fff; cursor: pointer;
+  }
+  button.secondary { background: transparent; color: inherit; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .8rem; font-weight: 600; }
+  .ok { background: #1f8b4c; color: #fff; }
+  .no { background: #b04632; color: #fff; }
+  .hidden { display: none; }
+  code { background: rgba(128,128,128,.18); padding: 1px 5px; border-radius: 4px; }
+  .note { font-size: .85rem; color: #888; }
+</style>
+</head>
+<body>
+  <h1>Claude Export — Shape Inspector 🔎</h1>
+  <p class="sub">Drop your <code>conversations.json</code> below. It reads the file <strong>entirely in your browser</strong> — nothing is uploaded anywhere. It prints the structure (field names) with all real text redacted, so it's safe to copy/paste back.</p>
+
+  <div id="drop">
+    <strong>Drag &amp; drop conversations.json here</strong><br>
+    <span class="note">…or click to choose a file</span>
+    <input id="file" type="file" accept=".json,application/json" class="hidden">
+  </div>
+
+  <div class="opts">
+    <label><input type="checkbox" id="redact" checked> Redact all text (recommended)</label>
+    <button id="copy" class="secondary hidden">Copy output</button>
+  </div>
+
+  <div id="summary"></div>
+  <textarea id="out" placeholder="Structure will appear here after you drop a file…" readonly></textarea>
+
+<script>
+const drop = document.getElementById('drop');
+const fileInput = document.getElementById('file');
+const out = document.getElementById('out');
+const summary = document.getElementById('summary');
+const copyBtn = document.getElementById('copy');
+const redactBox = document.getElementById('redact');
+
+drop.addEventListener('click', () => fileInput.click());
+['dragenter','dragover'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add('hover'); }));
+['dragleave','drop'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove('hover'); }));
+drop.addEventListener('drop', ev => { if (ev.dataTransfer.files[0]) handle(ev.dataTransfer.files[0]); });
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) handle(fileInput.files[0]); });
+copyBtn.addEventListener('click', () => { out.select(); document.execCommand('copy'); copyBtn.textContent = 'Copied!'; setTimeout(()=>copyBtn.textContent='Copy output',1200); });
+
+function redact(v) {
+  if (typeof v === 'string') return redactBox.checked ? `<string, ${v.length} chars>` : (v.length > 60 ? v.slice(0,60)+'…' : v);
+  return v;
+}
+
+// Describe the *shape* of a value: keys + types, recursing, arrays shown by first element.
+function describe(value) {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) {
+    if (value.length === 0) return '[] (empty)';
+    return { [`array[${value.length}] of`]: describe(value[0]) };
+  }
+  if (typeof value === 'object') {
+    const o = {};
+    for (const k of Object.keys(value)) o[k] = describe(value[k]);
+    return o;
+  }
+  if (typeof value === 'string') return redact(value);
+  return typeof value; // number | boolean
+}
+
+function handle(file) {
+  summary.innerHTML = '<p class="note">Reading ' + file.name + ' (' + (file.size/1048576).toFixed(1) + ' MB)…</p>';
+  out.value = '';
+  const reader = new FileReader();
+  reader.onload = () => {
+    let data;
+    try { data = JSON.parse(reader.result); }
+    catch (e) { summary.innerHTML = '<p class="badge no">Could not parse JSON: ' + e.message + '</p>'; return; }
+    analyze(data);
+  };
+  reader.onerror = () => summary.innerHTML = '<p class="badge no">Failed to read file.</p>';
+  reader.readAsText(file);
+}
+
+function analyze(data) {
+  const convos = Array.isArray(data) ? data : (data.conversations || [data]);
+  const lines = [];
+
+  // ---- Global scan: collect message keys, content-block types, sender values, thinking presence ----
+  const msgKeys = new Set();
+  const blockTypes = new Set();
+  const senders = new Set();
+  let thinkingCount = 0;
+  let totalMsgs = 0;
+  let sampleThinkingMsg = null, sampleHuman = null, sampleAssistant = null;
+
+  function scanMsg(m) {
+    totalMsgs++;
+    Object.keys(m).forEach(k => msgKeys.add(k));
+    if (m.sender) senders.add(m.sender);
+    const content = m.content;
+    let hasThinking = false;
+    if (Array.isArray(content)) {
+      content.forEach(b => {
+        if (b && typeof b === 'object' && b.type) {
+          blockTypes.add(b.type);
+          if (/think/i.test(b.type)) { thinkingCount++; hasThinking = true; }
+        }
+      });
+    }
+    // also catch a top-level "thinking" field, just in case
+    if ('thinking' in m && m.thinking) { thinkingCount++; hasThinking = true; }
+    if (hasThinking && !sampleThinkingMsg) sampleThinkingMsg = m;
+    if (m.sender === 'human' && !sampleHuman) sampleHuman = m;
+    if (m.sender === 'assistant' && !sampleAssistant) sampleAssistant = m;
+  }
+
+  convos.forEach(c => (c.chat_messages || c.messages || []).forEach(scanMsg));
+
+  // ---- Summary banner ----
+  const thinkBadge = thinkingCount > 0
+    ? '<span class="badge ok">✓ thinking found: ' + thinkingCount + ' block(s)</span>'
+    : '<span class="badge no">✗ no thinking blocks detected</span>';
+  summary.innerHTML =
+    '<p>' + convos.length + ' conversation(s) · ' + totalMsgs + ' message(s) &nbsp; ' + thinkBadge + '</p>';
+  copyBtn.classList.remove('hidden');
+
+  // ---- Build the report ----
+  lines.push('===== CLAUDE EXPORT SHAPE REPORT =====');
+  lines.push('Conversations: ' + convos.length);
+  lines.push('Total messages: ' + totalMsgs);
+  lines.push('Sender values seen: ' + JSON.stringify([...senders]));
+  lines.push('Content-block "type" values seen: ' + JSON.stringify([...blockTypes]));
+  lines.push('Message-level keys seen: ' + JSON.stringify([...msgKeys]));
+  lines.push('THINKING blocks found: ' + thinkingCount + (thinkingCount ? '  ✓' : '  ✗ (not in this export)'));
+  lines.push('');
+  lines.push('----- Top-level conversation shape -----');
+  if (convos[0]) {
+    const c = { ...convos[0] };
+    // trim message arrays so the report stays readable
+    if (Array.isArray(c.chat_messages)) c.chat_messages = '[see message samples below]';
+    if (Array.isArray(c.messages)) c.messages = '[see message samples below]';
+    lines.push(JSON.stringify(describe(c), null, 2));
+  }
+  lines.push('');
+  lines.push('----- Sample HUMAN message shape -----');
+  lines.push(sampleHuman ? JSON.stringify(describe(sampleHuman), null, 2) : '(none found)');
+  lines.push('');
+  lines.push('----- Sample ASSISTANT message shape -----');
+  lines.push(sampleAssistant ? JSON.stringify(describe(sampleAssistant), null, 2) : '(none found)');
+  lines.push('');
+  lines.push('----- Sample message WITH THINKING -----');
+  lines.push(sampleThinkingMsg ? JSON.stringify(describe(sampleThinkingMsg), null, 2) : '(no message with thinking found)');
+
+  out.value = lines.join('\n');
+}
+</script>
+</body>
+</html>
