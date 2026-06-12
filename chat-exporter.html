@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Chat Exporter</title>
+<style>
+  :root { color-scheme: light dark; --accent:#4a90d9; --line:#8884; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin:0; line-height:1.55; }
+
+  .app-header { display:flex; align-items:center; gap:14px; padding:12px 18px; border-bottom:1px solid var(--line); position:sticky; top:0; background:Canvas; z-index:5; }
+  .app-header h1 { font-size:1.05rem; margin:0; }
+  .app-header .grow { flex:1; }
+  .layout { display:flex; min-height:calc(100vh - 56px); }
+
+  /* Sidebar */
+  .sidebar { width:300px; border-right:1px solid var(--line); display:flex; flex-direction:column; max-height:calc(100vh - 56px); position:sticky; top:56px; }
+  .sidebar .search { padding:10px; border-bottom:1px solid var(--line); }
+  .sidebar .search input { width:100%; padding:7px 10px; border:1px solid var(--line); border-radius:8px; background:transparent; color:inherit; }
+  .convlist { overflow:auto; flex:1; }
+  .convitem { padding:9px 12px; border-bottom:1px solid var(--line); cursor:pointer; }
+  .convitem:hover { background:var(--accent); color:#fff; }
+  .convitem.active { background:var(--accent); color:#fff; }
+  .convitem .nm { font-weight:600; font-size:.92rem; }
+  .convitem .mt { font-size:.78rem; opacity:.75; }
+
+  /* Main */
+  .main { flex:1; display:flex; flex-direction:column; min-width:0; }
+  .controls { display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; padding:12px 18px; border-bottom:1px solid var(--line); position:sticky; top:56px; background:Canvas; z-index:4; }
+  .controls label { font-size:.85rem; display:flex; align-items:center; gap:6px; }
+  .controls input[type=text] { padding:6px 9px; border:1px solid var(--line); border-radius:7px; background:transparent; color:inherit; }
+  .field { display:flex; flex-direction:column; gap:3px; }
+  .field small { opacity:.6; font-size:.7rem; }
+  button { font-size:.9rem; padding:7px 14px; border-radius:8px; border:1px solid var(--line); background:var(--accent); color:#fff; cursor:pointer; }
+  button.secondary { background:transparent; color:inherit; }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+
+  .messages { padding:20px clamp(18px, 6vw, 90px); max-width:900px; width:100%; margin:0 auto; }
+  #printHeader { display:none; }
+  .empty { opacity:.6; text-align:center; padding:60px 20px; }
+
+  .msg { display:flex; gap:10px; padding:12px 0; border-bottom:1px dashed var(--line); }
+  .msg .sel { margin-top:5px; }
+  .msg .body { flex:1; min-width:0; }
+  .meta { font-size:.82rem; margin-bottom:4px; }
+  .who { font-weight:700; }
+  .who.human { color:#2e7d32; }
+  .who.assistant { color:var(--accent); }
+  .timestamp { opacity:.6; margin-left:8px; font-weight:400; }
+  .text { white-space:pre-wrap; word-wrap:break-word; }
+  .thinking { white-space:pre-wrap; word-wrap:break-word; font-style:italic; opacity:.92;
+    background:#8881; border-left:3px solid #b48ead; padding:8px 12px; border-radius:6px; margin:6px 0; }
+  .thinking::before { content:"💭 thinking"; display:block; font-style:normal; font-weight:600; font-size:.72rem; opacity:.7; margin-bottom:4px; }
+
+  .msg.deselected { opacity:.32; }
+  body.hide-thinking .thinking { display:none; }
+  body.hide-timestamps .timestamp { display:none; }
+
+  @media print {
+    .app-header, .sidebar, .controls, .msg .sel { display:none !important; }
+    .msg.deselected { display:none !important; }
+    .messages { max-width:none; padding:0; }
+    #printHeader { display:block; margin-bottom:18px; }
+    #printHeader h1 { margin:0 0 4px; }
+    .msg { border-bottom:1px solid #ccc; break-inside:avoid; }
+  }
+</style>
+</head>
+<body class="">
+<div class="app-header">
+  <h1>📄 Claude Chat Exporter</h1>
+  <div class="grow"></div>
+  <button id="loadBtn">Load conversations.json</button>
+  <input id="file" type="file" accept=".json,application/json" hidden>
+</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="search"><input id="search" type="text" placeholder="Search 148 conversations…" disabled></div>
+    <div class="convlist" id="convlist"><div class="empty" style="font-size:.85rem">Load your export to begin.</div></div>
+  </aside>
+
+  <main class="main">
+    <div class="controls">
+      <div class="field"><label>Document title</label><input type="text" id="docTitle" placeholder="(load a conversation)"></div>
+      <div class="field"><label>"User" label</label><input type="text" id="lblHuman" value="User"></div>
+      <div class="field"><label>"Claude" label</label><input type="text" id="lblAsst" value="Claude"></div>
+      <label><input type="checkbox" id="tgThinking" checked> Show thinking</label>
+      <label><input type="checkbox" id="tgTs" checked> Show timestamps</label>
+      <button class="secondary" id="selAll">Select all</button>
+      <button class="secondary" id="selNone">Select none</button>
+      <div class="grow" style="flex:1"></div>
+      <button id="expPdf" disabled>Export PDF</button>
+      <button id="expTxt" disabled>Export text</button>
+    </div>
+
+    <div class="messages" id="messages">
+      <div id="printHeader"><h1 id="printTitle"></h1></div>
+      <div class="empty" id="emptyMsg">Pick a conversation from the left.</div>
+    </div>
+  </main>
+</div>
+
+<script>
+let DATA = [];          // array of conversations
+let current = null;     // selected conversation
+
+const $ = id => document.getElementById(id);
+const loadBtn=$('loadBtn'), fileInput=$('file'), search=$('search'),
+      convlist=$('convlist'), messages=$('messages'), emptyMsg=$('emptyMsg'),
+      docTitle=$('docTitle'), lblHuman=$('lblHuman'), lblAsst=$('lblAsst'),
+      tgThinking=$('tgThinking'), tgTs=$('tgTs'),
+      expPdf=$('expPdf'), expTxt=$('expTxt'), printTitle=$('printTitle');
+
+loadBtn.onclick = () => fileInput.click();
+fileInput.onchange = () => fileInput.files[0] && readFile(fileInput.files[0]);
+
+function readFile(file){
+  loadBtn.textContent = 'Reading… ('+(file.size/1048576).toFixed(0)+' MB)';
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      DATA = Array.isArray(d) ? d : (d.conversations || [d]);
+    } catch(e){ alert('Could not parse JSON: '+e.message); loadBtn.textContent='Load conversations.json'; return; }
+    loadBtn.textContent = DATA.length+' conversations loaded';
+    search.disabled = false;
+    search.placeholder = 'Search '+DATA.length+' conversations…';
+    renderList('');
+  };
+  r.onerror = () => { alert('Failed to read file.'); loadBtn.textContent='Load conversations.json'; };
+  r.readAsText(file);
+}
+
+function fmtDate(s){
+  if(!s) return '';
+  const d = new Date(s);
+  if(isNaN(d)) return s;
+  return d.toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+function convDate(c){ return fmtDate(c.created_at || (c.chat_messages&&c.chat_messages[0]&&c.chat_messages[0].created_at)); }
+
+search.oninput = () => renderList(search.value.trim().toLowerCase());
+
+function renderList(filter){
+  convlist.innerHTML = '';
+  const items = DATA
+    .map((c,i)=>({c,i}))
+    .filter(({c}) => !filter || (c.name||'').toLowerCase().includes(filter));
+  if(!items.length){ convlist.innerHTML = '<div class="empty" style="font-size:.85rem">No matches.</div>'; return; }
+  items.forEach(({c,i})=>{
+    const n = (c.chat_messages||c.messages||[]).length;
+    const el = document.createElement('div');
+    el.className = 'convitem'+(current===c?' active':'');
+    el.innerHTML = '<div class="nm"></div><div class="mt"></div>';
+    el.querySelector('.nm').textContent = c.name && c.name.trim() ? c.name : '(untitled)';
+    el.querySelector('.mt').textContent = convDate(c) + ' · ' + n + ' messages';
+    el.onclick = () => selectConv(c, el);
+    convlist.appendChild(el);
+  });
+}
+
+// Pull renderable pieces (in order) from one message
+function piecesOf(m){
+  const out = [];
+  (m.content||[]).forEach(b=>{
+    if(!b || typeof b!=='object') return;
+    if(b.type==='text'){ const t=(b.text||'').trim(); if(t) out.push({kind:'text', text:t}); }
+    else if(b.type==='thinking'){ const t=(b.thinking||b.text||'').trim(); if(t) out.push({kind:'thinking', text:t}); }
+  });
+  if(!out.length && (m.text||'').trim()) out.push({kind:'text', text:m.text.trim()});
+  return out;
+}
+
+function selectConv(c, el){
+  current = c;
+  document.querySelectorAll('.convitem').forEach(x=>x.classList.remove('active'));
+  if(el) el.classList.add('active');
+  docTitle.value = (c.name && c.name.trim()) ? c.name : 'Conversation '+fmtDate(c.created_at);
+  printTitle.textContent = docTitle.value;
+  emptyMsg.style.display = 'none';
+  expPdf.disabled = expTxt.disabled = false;
+
+  // clear old messages (keep printHeader + emptyMsg)
+  [...messages.querySelectorAll('.msg')].forEach(n=>n.remove());
+
+  const frag = document.createDocumentFragment();
+  (c.chat_messages||c.messages||[]).forEach(m=>{
+    const pieces = piecesOf(m);
+    if(!pieces.length) return; // skip tool-only / empty messages
+    const who = m.sender==='human' ? 'human' : 'assistant';
+    const ts = fmtDate(m.created_at || (m.content&&m.content[0]&&m.content[0].start_timestamp));
+
+    const card = document.createElement('div');
+    card.className = 'msg';
+    card.dataset.sender = who;
+    card.dataset.ts = ts;
+
+    const cb = document.createElement('input');
+    cb.type='checkbox'; cb.className='sel'; cb.checked=true;
+    cb.onchange = () => card.classList.toggle('deselected', !cb.checked);
+
+    const body = document.createElement('div');
+    body.className='body';
+    const meta = document.createElement('div');
+    meta.className='meta';
+    meta.innerHTML = '<span class="who '+who+'"></span><span class="timestamp"></span>';
+    meta.querySelector('.timestamp').textContent = ts;
+    body.appendChild(meta);
+
+    pieces.forEach(p=>{
+      const div = document.createElement('div');
+      div.className = p.kind;          // 'text' or 'thinking'
+      div.textContent = p.text;
+      body.appendChild(div);
+    });
+
+    card.appendChild(cb); card.appendChild(body);
+    frag.appendChild(card);
+  });
+  messages.appendChild(frag);
+  applyLabels();
+  window.scrollTo(0,0);
+}
+
+function applyLabels(){
+  const h = lblHuman.value || 'User', a = lblAsst.value || 'Claude';
+  document.querySelectorAll('.msg').forEach(card=>{
+    card.querySelector('.who').textContent = card.dataset.sender==='human' ? h : a;
+  });
+}
+lblHuman.oninput = lblAsst.oninput = applyLabels;
+docTitle.oninput = () => printTitle.textContent = docTitle.value;
+
+tgThinking.onchange = () => document.body.classList.toggle('hide-thinking', !tgThinking.checked);
+tgTs.onchange       = () => document.body.classList.toggle('hide-timestamps', !tgTs.checked);
+
+$('selAll').onclick  = () => document.querySelectorAll('.msg').forEach(c=>{ c.querySelector('.sel').checked=true;  c.classList.remove('deselected'); });
+$('selNone').onclick = () => document.querySelectorAll('.msg').forEach(c=>{ c.querySelector('.sel').checked=false; c.classList.add('deselected'); });
+
+expPdf.onclick = () => window.print();   // choose "Save as PDF" in the print dialog
+
+expTxt.onclick = () => {
+  const showThinking = tgThinking.checked, showTs = tgTs.checked;
+  const h = lblHuman.value||'User', a = lblAsst.value||'Claude';
+  const title = docTitle.value || 'Conversation';
+  let out = title + '\n' + '='.repeat(Math.max(title.length,3)) + '\n\n';
+  document.querySelectorAll('.msg').forEach(card=>{
+    if(!card.querySelector('.sel').checked) return;
+    const who = card.dataset.sender==='human' ? h : a;
+    let header = who;
+    if(showTs && card.dataset.ts) header += '  ['+card.dataset.ts+']';
+    out += header + ':\n';
+    if(showThinking) card.querySelectorAll('.thinking').forEach(t=> out += '[thinking]\n'+t.textContent+'\n\n');
+    card.querySelectorAll('.text').forEach(t=> out += t.textContent+'\n');
+    out += '\n';
+  });
+  const blob = new Blob([out], {type:'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a2 = document.createElement('a');
+  a2.href = url; a2.download = title.replace(/[\\/:*?"<>|]+/g,'_') + '.txt';
+  a2.click(); URL.revokeObjectURL(url);
+};
+</script>
+</body>
+</html>
