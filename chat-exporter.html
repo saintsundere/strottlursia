@@ -5,38 +5,39 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Claude Chat Exporter</title>
 <style>
-  :root { color-scheme: light dark; --accent:#4a90d9; --line:#8884; }
-  * { box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin:0; line-height:1.55; }
+  :root { color-scheme:light dark; --accent:#4a90d9; --line:#8884; --branch:#b48ead; --bp:#e0a030; }
+  * { box-sizing:border-box; }
+  body { font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; margin:0; line-height:1.55; }
 
   .app-header { display:flex; align-items:center; gap:14px; padding:12px 18px; border-bottom:1px solid var(--line); position:sticky; top:0; background:Canvas; z-index:5; }
   .app-header h1 { font-size:1.05rem; margin:0; }
   .app-header .grow { flex:1; }
   .layout { display:flex; min-height:calc(100vh - 56px); }
 
-  /* Sidebar */
   .sidebar { width:300px; border-right:1px solid var(--line); display:flex; flex-direction:column; max-height:calc(100vh - 56px); position:sticky; top:56px; }
   .sidebar .search { padding:10px; border-bottom:1px solid var(--line); }
   .sidebar .search input { width:100%; padding:7px 10px; border:1px solid var(--line); border-radius:8px; background:transparent; color:inherit; }
   .convlist { overflow:auto; flex:1; }
   .convitem { padding:9px 12px; border-bottom:1px solid var(--line); cursor:pointer; }
-  .convitem:hover { background:var(--accent); color:#fff; }
-  .convitem.active { background:var(--accent); color:#fff; }
+  .convitem:hover, .convitem.active { background:var(--accent); color:#fff; }
   .convitem .nm { font-weight:600; font-size:.92rem; }
   .convitem .mt { font-size:.78rem; opacity:.75; }
 
-  /* Main */
   .main { flex:1; display:flex; flex-direction:column; min-width:0; }
   .controls { display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; padding:12px 18px; border-bottom:1px solid var(--line); position:sticky; top:56px; background:Canvas; z-index:4; }
   .controls label { font-size:.85rem; display:flex; align-items:center; gap:6px; }
   .controls input[type=text] { padding:6px 9px; border:1px solid var(--line); border-radius:7px; background:transparent; color:inherit; }
   .field { display:flex; flex-direction:column; gap:3px; }
-  .field small { opacity:.6; font-size:.7rem; }
+  .vsel { display:flex; gap:10px; border:1px solid var(--line); border-radius:8px; padding:4px 8px; }
   button { font-size:.9rem; padding:7px 14px; border-radius:8px; border:1px solid var(--line); background:var(--accent); color:#fff; cursor:pointer; }
   button.secondary { background:transparent; color:inherit; }
   button:disabled { opacity:.4; cursor:not-allowed; }
 
-  .messages { padding:20px clamp(18px, 6vw, 90px); max-width:900px; width:100%; margin:0 auto; }
+  .legend { display:none; gap:14px; padding:6px 18px; font-size:.78rem; border-bottom:1px solid var(--line); align-items:center; }
+  .legend .sw { display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+  .sw.main { background:var(--accent); } .sw.bp { background:var(--bp); } .sw.br { background:var(--branch); }
+
+  .messages { padding:20px clamp(18px,6vw,90px); max-width:920px; width:100%; margin:0 auto; }
   #printHeader { display:none; }
   .empty { opacity:.6; text-align:center; padding:60px 20px; }
 
@@ -45,21 +46,33 @@
   .msg .body { flex:1; min-width:0; }
   .meta { font-size:.82rem; margin-bottom:4px; }
   .who { font-weight:700; }
-  .who.human { color:#2e7d32; }
-  .who.assistant { color:var(--accent); }
+  .who.human { color:#2e7d32; } .who.assistant { color:var(--accent); }
   .timestamp { opacity:.6; margin-left:8px; font-weight:400; }
+  .bp-badge { color:var(--bp); font-weight:700; margin-left:8px; font-size:.72rem; }
+  .bp-badge:empty { display:none; }
   .text { white-space:pre-wrap; word-wrap:break-word; }
   .thinking { white-space:pre-wrap; word-wrap:break-word; font-style:italic; opacity:.92;
-    background:#8881; border-left:3px solid #b48ead; padding:8px 12px; border-radius:6px; margin:6px 0; }
+    background:#8881; border-left:3px solid var(--branch); padding:8px 12px; border-radius:6px; margin:6px 0; }
   .thinking::before { content:"💭 thinking"; display:block; font-style:normal; font-weight:600; font-size:.72rem; opacity:.7; margin-bottom:4px; }
 
+  /* Tier 2: branch-off point */
+  .msg.branchpoint { border-left:3px solid var(--bp); padding-left:9px; }
+  /* Tier 3: branch work */
+  .msg.branch { background:rgba(180,142,173,.12); border-left:3px solid var(--branch); padding-left:9px; border-radius:0 6px 6px 0; }
+  .branchhead { display:flex; align-items:center; gap:8px; margin:10px 0 2px; padding:6px 11px;
+    background:rgba(180,142,173,.14); border-left:3px solid var(--branch); border-radius:0 6px 6px 0; font-size:.85rem; }
+  .branchhead.on { background:rgba(180,142,173,.30); }
+  .branchhead .tiny { opacity:.6; font-size:.76rem; }
+
   .msg.deselected { opacity:.32; }
+  .msg.branch-excluded { opacity:.34; }
   body.hide-thinking .thinking { display:none; }
   body.hide-timestamps .timestamp { display:none; }
 
   @media print {
-    .app-header, .sidebar, .controls, .msg .sel { display:none !important; }
-    .msg.deselected { display:none !important; }
+    .app-header, .sidebar, .controls, .legend, .msg .sel { display:none !important; }
+    .msg.deselected, .msg.branch-excluded, .branchhead:not(.on) { display:none !important; }
+    .branchhead input { display:none; }
     .messages { max-width:none; padding:0; }
     #printHeader { display:block; margin-bottom:18px; }
     #printHeader h1 { margin:0 0 4px; }
@@ -67,7 +80,7 @@
   }
 </style>
 </head>
-<body class="">
+<body>
 <div class="app-header">
   <h1>📄 Claude Chat Exporter</h1>
   <div class="grow"></div>
@@ -77,7 +90,7 @@
 
 <div class="layout">
   <aside class="sidebar">
-    <div class="search"><input id="search" type="text" placeholder="Search 148 conversations…" disabled></div>
+    <div class="search"><input id="search" type="text" placeholder="Search conversations…" disabled></div>
     <div class="convlist" id="convlist"><div class="empty" style="font-size:.85rem">Load your export to begin.</div></div>
   </aside>
 
@@ -86,13 +99,22 @@
       <div class="field"><label>Document title</label><input type="text" id="docTitle" placeholder="(load a conversation)"></div>
       <div class="field"><label>"User" label</label><input type="text" id="lblHuman" value="User"></div>
       <div class="field"><label>"Claude" label</label><input type="text" id="lblAsst" value="Claude"></div>
-      <label><input type="checkbox" id="tgThinking" checked> Show thinking</label>
-      <label><input type="checkbox" id="tgTs" checked> Show timestamps</label>
+      <div class="vsel">
+        <label><input type="radio" name="view" value="main" checked> Main thread only</label>
+        <label><input type="radio" name="view" value="full"> Full tree (pick branches)</label>
+      </div>
+      <label><input type="checkbox" id="tgThinking" checked> Thinking</label>
+      <label><input type="checkbox" id="tgTs" checked> Timestamps</label>
       <button class="secondary" id="selAll">Select all</button>
       <button class="secondary" id="selNone">Select none</button>
       <div class="grow" style="flex:1"></div>
       <button id="expPdf" disabled>Export PDF</button>
       <button id="expTxt" disabled>Export text</button>
+    </div>
+    <div class="legend" id="legend">
+      <span><span class="sw main"></span>main conversation</span>
+      <span><span class="sw bp"></span>branch point (⎇ where it splits)</span>
+      <span><span class="sw br"></span>branch work (tick its box to include)</span>
     </div>
 
     <div class="messages" id="messages">
@@ -103,164 +125,213 @@
 </div>
 
 <script>
-let DATA = [];          // array of conversations
-let current = null;     // selected conversation
+let DATA=[], current=null;
+let byId, kids, mainPath, mainSet, latestMemo, branchSeq=0, enabledBranches=new Set();
 
-const $ = id => document.getElementById(id);
+const $=id=>document.getElementById(id);
 const loadBtn=$('loadBtn'), fileInput=$('file'), search=$('search'),
       convlist=$('convlist'), messages=$('messages'), emptyMsg=$('emptyMsg'),
       docTitle=$('docTitle'), lblHuman=$('lblHuman'), lblAsst=$('lblAsst'),
-      tgThinking=$('tgThinking'), tgTs=$('tgTs'),
+      tgThinking=$('tgThinking'), tgTs=$('tgTs'), legend=$('legend'),
       expPdf=$('expPdf'), expTxt=$('expTxt'), printTitle=$('printTitle');
 
-loadBtn.onclick = () => fileInput.click();
-fileInput.onchange = () => fileInput.files[0] && readFile(fileInput.files[0]);
+loadBtn.onclick=()=>fileInput.click();
+fileInput.onchange=()=>fileInput.files[0]&&readFile(fileInput.files[0]);
 
 function readFile(file){
-  loadBtn.textContent = 'Reading… ('+(file.size/1048576).toFixed(0)+' MB)';
-  const r = new FileReader();
-  r.onload = () => {
-    try {
-      const d = JSON.parse(r.result);
-      DATA = Array.isArray(d) ? d : (d.conversations || [d]);
-    } catch(e){ alert('Could not parse JSON: '+e.message); loadBtn.textContent='Load conversations.json'; return; }
-    loadBtn.textContent = DATA.length+' conversations loaded';
-    search.disabled = false;
-    search.placeholder = 'Search '+DATA.length+' conversations…';
+  loadBtn.textContent='Reading… ('+(file.size/1048576).toFixed(0)+' MB)';
+  const r=new FileReader();
+  r.onload=()=>{
+    try{ const d=JSON.parse(r.result); DATA=Array.isArray(d)?d:(d.conversations||[d]); }
+    catch(e){ alert('Could not parse JSON: '+e.message); loadBtn.textContent='Load conversations.json'; return; }
+    loadBtn.textContent=DATA.length+' conversations loaded';
+    search.disabled=false; search.placeholder='Search '+DATA.length+' conversations…';
     renderList('');
   };
-  r.onerror = () => { alert('Failed to read file.'); loadBtn.textContent='Load conversations.json'; };
+  r.onerror=()=>{ alert('Failed to read file.'); loadBtn.textContent='Load conversations.json'; };
   r.readAsText(file);
 }
 
-function fmtDate(s){
-  if(!s) return '';
-  const d = new Date(s);
-  if(isNaN(d)) return s;
-  return d.toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-}
-function convDate(c){ return fmtDate(c.created_at || (c.chat_messages&&c.chat_messages[0]&&c.chat_messages[0].created_at)); }
+function tms(s){ const t=Date.parse(s); return isNaN(t)?0:t; }
+function fmtDate(s){ if(!s)return''; const d=new Date(s); return isNaN(d)?s:d.toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
+function convDate(c){ return fmtDate(c.created_at||(c.chat_messages&&c.chat_messages[0]&&c.chat_messages[0].created_at)); }
 
-search.oninput = () => renderList(search.value.trim().toLowerCase());
-
+search.oninput=()=>renderList(search.value.trim().toLowerCase());
 function renderList(filter){
-  convlist.innerHTML = '';
-  const items = DATA
-    .map((c,i)=>({c,i}))
-    .filter(({c}) => !filter || (c.name||'').toLowerCase().includes(filter));
-  if(!items.length){ convlist.innerHTML = '<div class="empty" style="font-size:.85rem">No matches.</div>'; return; }
-  items.forEach(({c,i})=>{
-    const n = (c.chat_messages||c.messages||[]).length;
-    const el = document.createElement('div');
-    el.className = 'convitem'+(current===c?' active':'');
-    el.innerHTML = '<div class="nm"></div><div class="mt"></div>';
-    el.querySelector('.nm').textContent = c.name && c.name.trim() ? c.name : '(untitled)';
-    el.querySelector('.mt').textContent = convDate(c) + ' · ' + n + ' messages';
-    el.onclick = () => selectConv(c, el);
+  convlist.innerHTML='';
+  const items=DATA.map((c,i)=>({c,i})).filter(({c})=>!filter||(c.name||'').toLowerCase().includes(filter));
+  if(!items.length){ convlist.innerHTML='<div class="empty" style="font-size:.85rem">No matches.</div>'; return; }
+  items.forEach(({c})=>{
+    const n=(c.chat_messages||c.messages||[]).length;
+    const el=document.createElement('div');
+    el.className='convitem'+(current===c?' active':'');
+    el.innerHTML='<div class="nm"></div><div class="mt"></div>';
+    el.querySelector('.nm').textContent=c.name&&c.name.trim()?c.name:'(untitled)';
+    el.querySelector('.mt').textContent=convDate(c)+' · '+n+' messages';
+    el.onclick=()=>selectConv(c,el);
     convlist.appendChild(el);
   });
 }
 
-// Pull renderable pieces (in order) from one message
+// ---- tree ----
+function buildTree(c){
+  const msgs=c.chat_messages||c.messages||[];
+  byId=new Map(msgs.map(m=>[m.uuid,m]));
+  kids=new Map();
+  msgs.forEach(m=>{ const p=m.parent_message_uuid; if(p&&byId.has(p)){ if(!kids.has(p))kids.set(p,[]); kids.get(p).push(m);} });
+  kids.forEach(a=>a.sort((x,y)=>tms(x.created_at)-tms(y.created_at)));
+  let leaf=msgs[0]; msgs.forEach(m=>{ if(tms(m.created_at)>=tms(leaf.created_at)) leaf=m; });
+  mainPath=[]; let cur=leaf,g=0; while(cur&&g++<100000){ mainPath.unshift(cur); const p=cur.parent_message_uuid; cur=(p&&byId.has(p))?byId.get(p):null; }
+  mainSet=new Set(mainPath.map(m=>m.uuid));
+  latestMemo=new Map();
+}
+const childrenOf=m=>kids.get(m.uuid)||[];
+function subtreeSize(m){ let n=1; childrenOf(m).forEach(c=>n+=subtreeSize(c)); return n; }
+function latestInSubtree(m){ if(latestMemo.has(m.uuid))return latestMemo.get(m.uuid); let t=tms(m.created_at); childrenOf(m).forEach(c=>t=Math.max(t,latestInSubtree(c))); latestMemo.set(m.uuid,t); return t; }
+function primaryChild(ch){ return ch.reduce((a,b)=>latestInSubtree(b)>latestInSubtree(a)?b:a); }
+
 function piecesOf(m){
-  const out = [];
+  const out=[];
   (m.content||[]).forEach(b=>{
-    if(!b || typeof b!=='object') return;
-    if(b.type==='text'){ const t=(b.text||'').trim(); if(t) out.push({kind:'text', text:t}); }
-    else if(b.type==='thinking'){ const t=(b.thinking||b.text||'').trim(); if(t) out.push({kind:'thinking', text:t}); }
+    if(!b||typeof b!=='object')return;
+    if(b.type==='text'){ const t=(b.text||'').trim(); if(t)out.push({kind:'text',text:t}); }
+    else if(b.type==='thinking'){ const t=(b.thinking||b.text||'').trim(); if(t)out.push({kind:'thinking',text:t}); }
   });
-  if(!out.length && (m.text||'').trim()) out.push({kind:'text', text:m.text.trim()});
+  if(!out.length&&(m.text||'').trim()) out.push({kind:'text',text:m.text.trim()});
   return out;
 }
 
-function selectConv(c, el){
-  current = c;
+function makeCard(m, depth, branchIds, isBranch){
+  const pieces=piecesOf(m);
+  if(!pieces.length) return null;
+  const who=m.sender==='human'?'human':'assistant';
+  const ts=fmtDate(m.created_at||(m.content&&m.content[0]&&m.content[0].start_timestamp));
+  const card=document.createElement('div');
+  card.className='msg'+(isBranch?' branch':'');
+  card.dataset.sender=who; card.dataset.ts=ts; card.dataset.branches=branchIds.join(' ');
+  if(depth) card.style.marginLeft=(depth*22)+'px';
+  const cb=document.createElement('input'); cb.type='checkbox'; cb.className='sel'; cb.checked=true;
+  cb.onchange=()=>card.classList.toggle('deselected',!cb.checked);
+  const body=document.createElement('div'); body.className='body';
+  const meta=document.createElement('div'); meta.className='meta';
+  meta.innerHTML='<span class="who '+who+'"></span><span class="timestamp"></span><span class="bp-badge"></span>';
+  meta.querySelector('.timestamp').textContent=ts;
+  body.appendChild(meta);
+  pieces.forEach(p=>{ const d=document.createElement('div'); d.className=p.kind; d.textContent=p.text; body.appendChild(d); });
+  card.append(cb,body);
+  return card;
+}
+function markBranchPoint(card,n){ if(!card)return; card.classList.add('branchpoint'); card.querySelector('.bp-badge').textContent='⎇ '+n+' alt'; }
+
+function makeBranchHeader(label,size,depth,bid){
+  const h=document.createElement('div'); h.className='branchhead'; h.dataset.bid=bid; h.dataset.label='Branch '+label; h.dataset.enabled='0';
+  if(depth) h.style.marginLeft=(depth*22)+'px';
+  const cb=document.createElement('input'); cb.type='checkbox';
+  const span=document.createElement('span'); span.innerHTML='⎇ <b>Branch '+label+'</b> — '+size+' message'+(size>1?'s':'')+' (alternate version).';
+  const tiny=document.createElement('span'); tiny.className='tiny'; tiny.textContent='Tick to include in export.';
+  cb.onchange=()=>{ if(cb.checked)enabledBranches.add(bid); else enabledBranches.delete(bid); h.dataset.enabled=cb.checked?'1':'0'; h.classList.toggle('on',cb.checked); updateBranchVis(); };
+  h.append(cb,span,tiny);
+  return h;
+}
+
+function selectConv(c,el){
+  current=c;
   document.querySelectorAll('.convitem').forEach(x=>x.classList.remove('active'));
   if(el) el.classList.add('active');
-  docTitle.value = (c.name && c.name.trim()) ? c.name : 'Conversation '+fmtDate(c.created_at);
-  printTitle.textContent = docTitle.value;
-  emptyMsg.style.display = 'none';
-  expPdf.disabled = expTxt.disabled = false;
+  docTitle.value=(c.name&&c.name.trim())?c.name:'Conversation '+fmtDate(c.created_at);
+  printTitle.textContent=docTitle.value;
+  emptyMsg.style.display='none';
+  expPdf.disabled=expTxt.disabled=false;
+  buildTree(c);
+  renderMessages();
+}
 
-  // clear old messages (keep printHeader + emptyMsg)
-  [...messages.querySelectorAll('.msg')].forEach(n=>n.remove());
+function renderMessages(){
+  if(!current) return;
+  [...messages.querySelectorAll('.msg,.branchhead')].forEach(n=>n.remove());
+  branchSeq=0; enabledBranches=new Set();
+  const full=document.querySelector('input[name=view]:checked').value==='full';
+  legend.style.display=full?'flex':'none';
 
-  const frag = document.createDocumentFragment();
-  (c.chat_messages||c.messages||[]).forEach(m=>{
-    const pieces = piecesOf(m);
-    if(!pieces.length) return; // skip tool-only / empty messages
-    const who = m.sender==='human' ? 'human' : 'assistant';
-    const ts = fmtDate(m.created_at || (m.content&&m.content[0]&&m.content[0].start_timestamp));
-
-    const card = document.createElement('div');
-    card.className = 'msg';
-    card.dataset.sender = who;
-    card.dataset.ts = ts;
-
-    const cb = document.createElement('input');
-    cb.type='checkbox'; cb.className='sel'; cb.checked=true;
-    cb.onchange = () => card.classList.toggle('deselected', !cb.checked);
-
-    const body = document.createElement('div');
-    body.className='body';
-    const meta = document.createElement('div');
-    meta.className='meta';
-    meta.innerHTML = '<span class="who '+who+'"></span><span class="timestamp"></span>';
-    meta.querySelector('.timestamp').textContent = ts;
-    body.appendChild(meta);
-
-    pieces.forEach(p=>{
-      const div = document.createElement('div');
-      div.className = p.kind;          // 'text' or 'thinking'
-      div.textContent = p.text;
-      body.appendChild(div);
-    });
-
-    card.appendChild(cb); card.appendChild(body);
-    frag.appendChild(card);
+  mainPath.forEach((node,idx)=>{
+    const card=makeCard(node,0,[],false);
+    if(card) messages.appendChild(card);
+    const ch=childrenOf(node);
+    const chosen=ch.find(c=>mainSet.has(c.uuid));
+    const others=ch.filter(c=>c!==chosen);
+    if(others.length){
+      markBranchPoint(card,others.length);
+      if(full) others.forEach((o,i)=>{
+        const bid='b'+(branchSeq++);
+        renderBranch(o,1,[bid],(idx+1)+String.fromCharCode(97+i));
+      });
+    }
   });
-  messages.appendChild(frag);
-  applyLabels();
-  window.scrollTo(0,0);
+  applyLabels(); updateBranchVis(); window.scrollTo(0,0);
+}
+
+function renderBranch(start,depth,branchIds,label){
+  const bid=branchIds[branchIds.length-1];
+  messages.appendChild(makeBranchHeader(label,subtreeSize(start),depth,bid));
+  let cur=start;
+  while(cur){
+    const card=makeCard(cur,depth,branchIds,true);
+    if(card) messages.appendChild(card);
+    const ch=childrenOf(cur);
+    const chosen=ch.length?primaryChild(ch):null;
+    const others=ch.filter(c=>c!==chosen);
+    if(others.length){
+      markBranchPoint(card,others.length);
+      others.forEach((o,i)=>renderBranch(o,depth+1,branchIds.concat('b'+(branchSeq++)),label+'-'+(i+1)));
+    }
+    cur=chosen;
+  }
+}
+
+function updateBranchVis(){
+  document.querySelectorAll('.msg').forEach(card=>{
+    const ids=(card.dataset.branches||'').split(' ').filter(Boolean);
+    const excl=ids.length>0 && !ids.every(id=>enabledBranches.has(id));
+    card.classList.toggle('branch-excluded',excl);
+  });
 }
 
 function applyLabels(){
-  const h = lblHuman.value || 'User', a = lblAsst.value || 'Claude';
-  document.querySelectorAll('.msg').forEach(card=>{
-    card.querySelector('.who').textContent = card.dataset.sender==='human' ? h : a;
-  });
+  const h=lblHuman.value||'User', a=lblAsst.value||'Claude';
+  document.querySelectorAll('.msg').forEach(card=>{ card.querySelector('.who').textContent=card.dataset.sender==='human'?h:a; });
 }
-lblHuman.oninput = lblAsst.oninput = applyLabels;
-docTitle.oninput = () => printTitle.textContent = docTitle.value;
+lblHuman.oninput=lblAsst.oninput=applyLabels;
+docTitle.oninput=()=>printTitle.textContent=docTitle.value;
+document.querySelectorAll('input[name=view]').forEach(r=>r.onchange=renderMessages);
+tgThinking.onchange=()=>document.body.classList.toggle('hide-thinking',!tgThinking.checked);
+tgTs.onchange=()=>document.body.classList.toggle('hide-timestamps',!tgTs.checked);
+$('selAll').onclick=()=>document.querySelectorAll('.msg').forEach(c=>{ c.querySelector('.sel').checked=true; c.classList.remove('deselected'); });
+$('selNone').onclick=()=>document.querySelectorAll('.msg').forEach(c=>{ c.querySelector('.sel').checked=false; c.classList.add('deselected'); });
 
-tgThinking.onchange = () => document.body.classList.toggle('hide-thinking', !tgThinking.checked);
-tgTs.onchange       = () => document.body.classList.toggle('hide-timestamps', !tgTs.checked);
+expPdf.onclick=()=>window.print();
 
-$('selAll').onclick  = () => document.querySelectorAll('.msg').forEach(c=>{ c.querySelector('.sel').checked=true;  c.classList.remove('deselected'); });
-$('selNone').onclick = () => document.querySelectorAll('.msg').forEach(c=>{ c.querySelector('.sel').checked=false; c.classList.add('deselected'); });
-
-expPdf.onclick = () => window.print();   // choose "Save as PDF" in the print dialog
-
-expTxt.onclick = () => {
-  const showThinking = tgThinking.checked, showTs = tgTs.checked;
-  const h = lblHuman.value||'User', a = lblAsst.value||'Claude';
-  const title = docTitle.value || 'Conversation';
-  let out = title + '\n' + '='.repeat(Math.max(title.length,3)) + '\n\n';
-  document.querySelectorAll('.msg').forEach(card=>{
-    if(!card.querySelector('.sel').checked) return;
-    const who = card.dataset.sender==='human' ? h : a;
-    let header = who;
-    if(showTs && card.dataset.ts) header += '  ['+card.dataset.ts+']';
-    out += header + ':\n';
-    if(showThinking) card.querySelectorAll('.thinking').forEach(t=> out += '[thinking]\n'+t.textContent+'\n\n');
-    card.querySelectorAll('.text').forEach(t=> out += t.textContent+'\n');
-    out += '\n';
+expTxt.onclick=()=>{
+  const showThinking=tgThinking.checked, showTs=tgTs.checked;
+  const h=lblHuman.value||'User', a=lblAsst.value||'Claude';
+  const title=docTitle.value||'Conversation';
+  let out=title+'\n'+'='.repeat(Math.max(title.length,3))+'\n\n';
+  [...messages.children].forEach(node=>{
+    if(node.classList.contains('branchhead')){
+      if(node.dataset.enabled==='1') out+='\n----- '+node.dataset.label+' (alternate version) -----\n\n';
+      return;
+    }
+    if(!node.classList.contains('msg')) return;
+    if(node.classList.contains('branch-excluded')||node.classList.contains('deselected')) return;
+    if(!node.querySelector('.sel').checked) return;
+    const who=node.dataset.sender==='human'?h:a;
+    let header=who; if(showTs&&node.dataset.ts) header+='  ['+node.dataset.ts+']';
+    out+=header+':\n';
+    if(showThinking) node.querySelectorAll('.thinking').forEach(t=>out+='[thinking]\n'+t.textContent+'\n\n');
+    node.querySelectorAll('.text').forEach(t=>out+=t.textContent+'\n');
+    out+='\n';
   });
-  const blob = new Blob([out], {type:'text/plain'});
-  const url = URL.createObjectURL(blob);
-  const a2 = document.createElement('a');
-  a2.href = url; a2.download = title.replace(/[\\/:*?"<>|]+/g,'_') + '.txt';
-  a2.click(); URL.revokeObjectURL(url);
+  const blob=new Blob([out],{type:'text/plain'}); const url=URL.createObjectURL(blob);
+  const a2=document.createElement('a'); a2.href=url; a2.download=title.replace(/[\\/:*?"<>|]+/g,'_')+'.txt'; a2.click(); URL.revokeObjectURL(url);
 };
 </script>
 </body>
