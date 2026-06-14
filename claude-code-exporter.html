@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Code Session Exporter</title>
+<style>
+  :root { color-scheme:light dark; --accent:#4a90d9; --line:#8884; --branch:#b48ead; --tool:#c98a00; }
+  * { box-sizing:border-box; }
+  body { font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; margin:0; line-height:1.55; }
+  .app-header { display:flex; align-items:center; gap:14px; padding:12px 18px; border-bottom:1px solid var(--line); position:sticky; top:0; background:Canvas; z-index:5; }
+  .app-header h1 { font-size:1.05rem; margin:0; }
+  .app-header .grow { flex:1; }
+  .layout { display:flex; min-height:calc(100vh - 56px); }
+  .sidebar { width:310px; border-right:1px solid var(--line); display:flex; flex-direction:column; max-height:calc(100vh - 56px); position:sticky; top:56px; }
+  .sidebar .search { padding:10px; border-bottom:1px solid var(--line); }
+  .sidebar .search input { width:100%; padding:7px 10px; border:1px solid var(--line); border-radius:8px; background:transparent; color:inherit; }
+  .convlist { overflow:auto; flex:1; }
+  .convitem { padding:9px 12px; border-bottom:1px solid var(--line); cursor:pointer; }
+  .convitem:hover, .convitem.active { background:var(--accent); color:#fff; }
+  .convitem .nm { font-weight:600; font-size:.9rem; }
+  .convitem .mt { font-size:.77rem; opacity:.75; }
+  .main { flex:1; display:flex; flex-direction:column; min-width:0; }
+  .controls { display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; padding:12px 18px; border-bottom:1px solid var(--line); position:sticky; top:56px; background:Canvas; z-index:4; }
+  .controls label { font-size:.85rem; display:flex; align-items:center; gap:6px; }
+  .controls input[type=text] { padding:6px 9px; border:1px solid var(--line); border-radius:7px; background:transparent; color:inherit; }
+  .field { display:flex; flex-direction:column; gap:3px; }
+  button { font-size:.9rem; padding:7px 14px; border-radius:8px; border:1px solid var(--line); background:var(--accent); color:#fff; cursor:pointer; }
+  button.secondary { background:transparent; color:inherit; }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+
+  .messages { padding:20px clamp(18px,6vw,90px); max-width:920px; width:100%; margin:0 auto; }
+  #printHeader { display:none; }
+  .empty { opacity:.6; text-align:center; padding:60px 20px; }
+
+  .msg { display:flex; gap:10px; padding:12px 0; border-bottom:1px dashed var(--line); }
+  .msg .sel { margin-top:5px; }
+  .msg .body { flex:1; min-width:0; }
+  .meta { font-size:.82rem; margin-bottom:4px; }
+  .who { font-weight:700; }
+  .who.human { color:#2e7d32; } .who.assistant { color:var(--accent); } .who.tool { color:var(--tool); }
+  .timestamp { opacity:.6; margin-left:8px; font-weight:400; }
+  .text { white-space:pre-wrap; word-wrap:break-word; }
+  .thinking { white-space:pre-wrap; word-wrap:break-word; font-style:italic; opacity:.92;
+    background:#8881; border-left:3px solid var(--branch); padding:8px 12px; border-radius:6px; margin:6px 0; }
+  .thinking::before { content:"💭 thinking"; display:block; font-style:normal; font-weight:600; font-size:.72rem; opacity:.7; margin-bottom:4px; }
+  .tool, .toolresult { white-space:pre-wrap; word-wrap:break-word; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;
+    background:rgba(201,138,0,.10); border-left:3px solid var(--tool); padding:7px 11px; border-radius:6px; margin:6px 0; }
+  .toolresult { opacity:.8; }
+  .msg.toolcard { opacity:.95; }
+
+  .msg.deselected { opacity:.32; }
+  body.hide-thinking .thinking { display:none; }
+  body.hide-timestamps .timestamp { display:none; }
+  body.hide-tools .tool, body.hide-tools .toolresult { display:none; }
+  body.hide-tools .msg.toolcard { display:none; }
+
+  @media print {
+    .app-header, .sidebar, .controls, .msg .sel { display:none !important; }
+    .msg.deselected { display:none !important; }
+    .messages { max-width:none; padding:0; }
+    #printHeader { display:block; margin-bottom:18px; }
+    #printHeader h1 { margin:0 0 4px; }
+    .msg { border-bottom:1px solid #ccc; break-inside:avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="app-header">
+  <h1>⌨️ Claude Code Session Exporter</h1>
+  <div class="grow"></div>
+  <button id="loadBtn">Load .jsonl session(s)</button>
+  <input id="file" type="file" accept=".jsonl" multiple hidden>
+</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="search"><input id="search" type="text" placeholder="Search sessions…" disabled></div>
+    <div class="convlist" id="convlist"><div class="empty" style="font-size:.85rem">Load one or more .jsonl files.</div></div>
+  </aside>
+  <main class="main">
+    <div class="controls">
+      <div class="field"><label>Document title</label><input type="text" id="docTitle" placeholder="(load a session)"></div>
+      <div class="field"><label>"User" label</label><input type="text" id="lblHuman" value="User"></div>
+      <div class="field"><label>"Claude" label</label><input type="text" id="lblAsst" value="Claude"></div>
+      <label><input type="checkbox" id="tgThinking" checked> Thinking</label>
+      <label><input type="checkbox" id="tgTs" checked> Timestamps</label>
+      <label><input type="checkbox" id="tgTools" checked> Tools</label>
+      <button class="secondary" id="selAll">Select all</button>
+      <button class="secondary" id="selNone">Select none</button>
+      <div class="grow" style="flex:1"></div>
+      <button id="expPdf" disabled>Export PDF</button>
+      <button id="expTxt" disabled>Export text</button>
+    </div>
+    <div class="messages" id="messages">
+      <div id="printHeader"><h1 id="printTitle"></h1></div>
+      <div class="empty" id="emptyMsg">Pick a session from the left.</div>
+    </div>
+  </main>
+</div>
+
+<script>
+let DATA=[], current=null;
+const $=id=>document.getElementById(id);
+const loadBtn=$('loadBtn'), fileInput=$('file'), search=$('search'),
+      convlist=$('convlist'), messages=$('messages'), emptyMsg=$('emptyMsg'),
+      docTitle=$('docTitle'), lblHuman=$('lblHuman'), lblAsst=$('lblAsst'),
+      tgThinking=$('tgThinking'), tgTs=$('tgTs'), tgTools=$('tgTools'),
+      expPdf=$('expPdf'), expTxt=$('expTxt'), printTitle=$('printTitle');
+
+loadBtn.onclick=()=>fileInput.click();
+fileInput.onchange=()=>fileInput.files.length&&readFiles(fileInput.files);
+
+function tms(s){ const t=Date.parse(s); return isNaN(t)?0:t; }
+function fmtDate(s){ if(!s)return''; const d=new Date(s); return isNaN(d)?s:d.toLocaleString(undefined,{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
+
+function trText(c){
+  if(typeof c==='string') return c;
+  if(Array.isArray(c)) return c.map(b=> typeof b==='string'?b:((b&&b.text)||'')).join('\n');
+  return '';
+}
+function formatInput(inp){
+  if(!inp) return '';
+  if(typeof inp==='object'){
+    if(inp.command) return ': '+inp.command;
+    if(inp.file_path) return ': '+inp.file_path;
+    if(inp.pattern) return ': '+inp.pattern;
+    if(inp.url) return ': '+inp.url;
+    const s=JSON.stringify(inp); return ': '+(s.length>200?s.slice(0,200)+'…':s);
+  }
+  return ': '+inp;
+}
+
+function parseJsonl(text, filename){
+  const lines=text.split('\n');
+  const entries=[]; let sessionId='', created='', firstHuman='';
+  for(const ln of lines){
+    if(!ln.trim()) continue;
+    let o; try{ o=JSON.parse(ln); }catch{ continue; }
+    if(o.sessionId&&!sessionId) sessionId=o.sessionId;
+    if(o.timestamp&&!created) created=o.timestamp;
+    if(o.isMeta) continue;
+    if(o.type!=='user'&&o.type!=='assistant') continue;
+    const m=o.message||{}; const role=m.role||o.type; const content=m.content;
+    const pieces=[]; let sender;
+    if(role==='assistant'){
+      sender='assistant';
+      (Array.isArray(content)?content:[]).forEach(b=>{
+        if(!b||typeof b!=='object') return;
+        if(b.type==='text'&&(b.text||'').trim()) pieces.push({kind:'text',text:b.text.trim()});
+        else if(b.type==='thinking'&&(b.thinking||'').trim()) pieces.push({kind:'thinking',text:b.thinking.trim()});
+        else if(b.type==='tool_use') pieces.push({kind:'tool',text:'🔧 '+(b.name||'tool')+formatInput(b.input)});
+      });
+    } else {
+      if(typeof content==='string'){ if(content.trim()){ sender='human'; pieces.push({kind:'text',text:content.trim()}); } }
+      else if(Array.isArray(content)){
+        let hasText=false, hasTR=false;
+        content.forEach(b=>{
+          if(!b||typeof b!=='object') return;
+          if(b.type==='text'&&(b.text||'').trim()){ hasText=true; pieces.push({kind:'text',text:b.text.trim()}); }
+          else if(b.type==='tool_result'){ hasTR=true; const t=trText(b.content).trim(); pieces.push({kind:'toolresult',text:'↳ result\n'+(t.length>800?t.slice(0,800)+' …[truncated]':t)}); }
+        });
+        sender = hasText ? 'human' : (hasTR ? 'tool' : 'human');
+      }
+    }
+    if(!pieces.length) continue;
+    if(sender==='human'&&!firstHuman){ const tx=pieces.find(p=>p.kind==='text'); if(tx) firstHuman=tx.text.replace(/\s+/g,' ').slice(0,70); }
+    entries.push({sender, ts:o.timestamp||'', pieces});
+  }
+  return { title: firstHuman || ('Session '+(sessionId.slice(0,8)||filename)), created, sessionId, filename, entries };
+}
+
+function readFiles(files){
+  loadBtn.textContent='Reading '+files.length+' file(s)…';
+  DATA=[]; let pending=files.length;
+  [...files].forEach(f=>{
+    const r=new FileReader();
+    r.onload=()=>{ try{ DATA.push(parseJsonl(r.result,f.name)); }catch(e){} done(); };
+    r.onerror=done;
+    r.readAsText(f);
+  });
+  function done(){
+    if(--pending>0) return;
+    DATA.sort((a,b)=>tms(a.created)-tms(b.created));
+    loadBtn.textContent=DATA.length+' session(s) loaded';
+    search.disabled=false; search.placeholder='Search '+DATA.length+' sessions…';
+    renderList('');
+  }
+}
+
+search.oninput=()=>renderList(search.value.trim().toLowerCase());
+function renderList(filter){
+  convlist.innerHTML='';
+  const items=DATA.filter(c=>!filter||c.title.toLowerCase().includes(filter));
+  if(!items.length){ convlist.innerHTML='<div class="empty" style="font-size:.85rem">No matches.</div>'; return; }
+  items.forEach(c=>{
+    const el=document.createElement('div');
+    el.className='convitem'+(current===c?' active':'');
+    el.innerHTML='<div class="nm"></div><div class="mt"></div>';
+    el.querySelector('.nm').textContent=c.title;
+    el.querySelector('.mt').textContent=fmtDate(c.created)+' · '+c.entries.length+' messages';
+    el.onclick=()=>selectConv(c,el);
+    convlist.appendChild(el);
+  });
+}
+
+function selectConv(c,el){
+  current=c;
+  document.querySelectorAll('.convitem').forEach(x=>x.classList.remove('active'));
+  if(el) el.classList.add('active');
+  docTitle.value=c.title; printTitle.textContent=c.title;
+  emptyMsg.style.display='none';
+  expPdf.disabled=expTxt.disabled=false;
+  [...messages.querySelectorAll('.msg')].forEach(n=>n.remove());
+  const frag=document.createDocumentFragment();
+  c.entries.forEach(e=>{
+    const card=document.createElement('div');
+    card.className='msg'+(e.sender==='tool'?' toolcard':'');
+    card.dataset.sender=e.sender; card.dataset.ts=fmtDate(e.ts);
+    const cb=document.createElement('input'); cb.type='checkbox'; cb.className='sel'; cb.checked=true;
+    cb.onchange=()=>card.classList.toggle('deselected',!cb.checked);
+    const body=document.createElement('div'); body.className='body';
+    const meta=document.createElement('div'); meta.className='meta';
+    meta.innerHTML='<span class="who '+e.sender+'"></span><span class="timestamp"></span>';
+    meta.querySelector('.timestamp').textContent=card.dataset.ts;
+    body.appendChild(meta);
+    e.pieces.forEach(p=>{ const d=document.createElement('div'); d.className=p.kind; d.textContent=p.text; body.appendChild(d); });
+    card.append(cb,body);
+    frag.appendChild(card);
+  });
+  messages.appendChild(frag);
+  applyLabels(); window.scrollTo(0,0);
+}
+
+function applyLabels(){
+  const h=lblHuman.value||'User', a=lblAsst.value||'Claude';
+  document.querySelectorAll('.msg').forEach(card=>{
+    const s=card.dataset.sender;
+    card.querySelector('.who').textContent = s==='human'?h : s==='assistant'?a : 'Tool';
+  });
+}
+lblHuman.oninput=lblAsst.oninput=applyLabels;
+docTitle.oninput=()=>printTitle.textContent=docTitle.value;
+tgThinking.onchange=()=>document.body.classList.toggle('hide-thinking',!tgThinking.checked);
+tgTs.onchange=()=>document.body.classList.toggle('hide-timestamps',!tgTs.checked);
+tgTools.onchange=()=>document.body.classList.toggle('hide-tools',!tgTools.checked);
+$('selAll').onclick=()=>document.querySelectorAll('.msg').forEach(c=>{ c.querySelector('.sel').checked=true; c.classList.remove('deselected'); });
+$('selNone').onclick=()=>document.querySelectorAll('.msg').forEach(c=>{ c.querySelector('.sel').checked=false; c.classList.add('deselected'); });
+
+expPdf.onclick=()=>window.print();
+expTxt.onclick=()=>{
+  const showThinking=tgThinking.checked, showTs=tgTs.checked, showTools=tgTools.checked;
+  const h=lblHuman.value||'User', a=lblAsst.value||'Claude';
+  const title=docTitle.value||'Session';
+  let out=title+'\n'+'='.repeat(Math.max(title.length,3))+'\n\n';
+  document.querySelectorAll('.msg').forEach(card=>{
+    if(!card.querySelector('.sel').checked) return;
+    const s=card.dataset.sender;
+    if(s==='tool'&&!showTools) return;
+    const who=s==='human'?h : s==='assistant'?a : 'Tool';
+    let header=who; if(showTs&&card.dataset.ts) header+='  ['+card.dataset.ts+']';
+    out+=header+':\n';
+    if(showThinking) card.querySelectorAll('.thinking').forEach(t=>out+='[thinking]\n'+t.textContent+'\n\n');
+    card.querySelectorAll('.text').forEach(t=>out+=t.textContent+'\n');
+    if(showTools) card.querySelectorAll('.tool,.toolresult').forEach(t=>out+=t.textContent+'\n');
+    out+='\n';
+  });
+  const blob=new Blob([out],{type:'text/plain'}); const url=URL.createObjectURL(blob);
+  const a2=document.createElement('a'); a2.href=url; a2.download=title.replace(/[\\/:*?"<>|]+/g,'_')+'.txt'; a2.click(); URL.revokeObjectURL(url);
+};
+</script>
+</body>
+</html>
