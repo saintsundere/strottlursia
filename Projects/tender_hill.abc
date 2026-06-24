@@ -1,0 +1,41 @@
+X:1
+T:Tender Hill
+M:3/2
+L:1/8
+Q:1/2=60
+%%score (1 2)
+K:C
+V:1 clef=treble
+z12 | z12 | z12 | [K:Gb]z12 |
+D2 D z z8 | F3 z A6 z2 | g6 B6 | z4 a2 e6 |
+z4 F6 e2 | [FB]6 z6 | D6 [GB]2 B2 z2 & z8 G4 | f6 z6 & B2 g6 z4 |
+(3:2:2 E2 G4 E6 B2 | [K:C]z12 | [K:Gb]z12 | z8 g3 z |
+g6 z6 | z8 G4 | e6 B6 | G4 c6 z2 |
+z z z2 z8 | z z B6 z4 | z4 E6 F B, & B,6 z6 | A,6 D3 E3 |
+f2 z4 d'6 & A6 [Bg]6 | z12 | z4 B6 z2 | E A6 z [DF]4 |
+G6 g6 | F3 z D6 z2 | f6 d2 B4 | z8 B4 |
+f3 g2 c6 z | z8 z2 B2 | A E4 z e6 | F2 z2 z8 |
+f3 f2 z7 | z6 a6 | z8 E4 | z2 G2 B z e6 & F3 z9 |
+g3 e2 B g4 z2 | G3 c e z =D6 | F6 G6 | z6 d2 e3 z |
+d e z2 z8 & z G2 d3 e2 g4 | f6 e d2 e2 e | e3 G g3 z z4 | [K:C]z12 |
+[K:Gb]z12 | z2 g2 z f E2 z4 & z6 E2 z4 | [K:C]z12 | z12 |
+[K:Gb]z12 | F6 e2 z4 & z6 B6 & z4 G6 z2 | g3 z z8 | G6 g6 |
+z4 e6 z2 | [EG]4 [EG]4 z4 | z2 [EG]2 z8 & z4 [FB]6 z2 | [EG]4 B, [DG]2 z z4 |
+b6 f'6 |
+V:2 clef=bass
+A,6 z6 | B,2 A,2 B,,4 A,,4 | [K:Gb]D,6 A,6 | E,6 z z D,4 |
+z4 G,,6 z2 | z6 E,6 | z2 z2 z3 z z4 | z4 z2 C,6 |
+z4 D,6 A,2 & C6 z6 | G,,4 D,4 z4 | z4 D,2 F,,6 | z4 A,,6 z2 |
+z4 [B,,A,]3 z z4 | E,6 G,6 | z4 F,,6 z2 | F,,6 B,,6 |
+z4 E,,6 z2 | z8 z2 D,2 & z4 A,6 z B, & B,4 z8 | z6 A,,6 | z6 [B,,A,]6 |
+z4 B, z7 | z12 | z6 =A,,6 | z8 z2 E,,2 & D,6 z6 |
+z6 E,,6 | B, A,6 z z4 | E,6 G,6 | z8 z2 G,2 |
+z2 z2 z8 | D,2 A,2 z8 | z8 z2 B,2 & z8 G,,4 | G,,6 D,4 z2 |
+z6 E,6 | z12 | z12 | z12 |
+z4 F,,6 z2 | B,,6 F,6 | A,2 E,,6 G,4 | z6 D,6 |
+z6 A,,6 | z6 B,,6 | z7 z z4 | z2 z z C,6 z3/2 B,/2 |
+z8 D,4 & z6 B,2 z2 A,2 & z8 A,4 | z6 B,,6 & E,,6 z6 | B,3 z E,,6 z2 | [K:C]D,4 G,,6 z2 & D,6 z6 |
+G,,4 E,6 z2 | [K:Gb]D,2 z2 A,2 C,4 G,2 | [K:C]B,2 z2 z8 | [K:Gb]z2 B,6 z4 |
+z2 E,2 B,,3 z z4 & z2 E,,3 z E,6 | z6 =C,6 | z2 z2 A,,6 z2 | z6 B,,6 |
+z4 E,,6 z2 | z6 z2 z4 | z4 z2 E,,6 | z6 z [EG]3 z2 |
+z6 z4 z2 |
