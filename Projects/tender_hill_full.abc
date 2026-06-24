@@ -1,0 +1,47 @@
+X:1
+T:Tender Hill 3.0 (full harmony)
+M:4/4
+L:1/8
+Q:1/4=99
+%%score (1 2)
+K:Gb
+V:1 clef=treble
+B2 d2 [Ge]2 E b | [EGBeb]2-[EGBeb] e f b [Da] F | [DFefab]2-[DFefab] g f g f d | [dfg] F G B4 G |
+[FGB] D2 D E2-E b | [Eb] E e-e/2 [FA]/2 f2 F d' | [FAefd']2-[FAefd']-[FAefd']/2 e/2 [ge']2 F G | [FGBege'] f g b f'2-f' B |
+[Bfgbf'] a f d e2 E [Bb] | [EBdefb]4 F e f b | a/2 [Fefab] g2 d [FB]2-[FB]-[FB]/2 | z [FBd] D A2 [GB]2-[GB] |
+[GB] [GABe] [Bf] g a/2 [Be]/2 b2-b | z [Begab] E G a E g f | d [EGBdfga]2 B A E2 e | z E/2 z2 z/2 [EABe] F G-G/2 f/2 |
+[bf']2-[bf'] B b/2 z/2 [Bfbf']2-[Bfbf'] | z/2 [ce]/2 a4 [Ecea] e'2 | =d/2 f/2 b2-b a [=Dd']/2 [Ddfabd']2-[Ddfabd']/2 | z/2 f'/2 [gb]/2 e'4 [gbe'f'] E F/2 |
+z/2 G2-G E b [EFGab] g e/2 | z/2 B c2 g f E/2 z2 | z z/2 [EBcefg]/2 G c2 =D2-=D | z z/2 [=Dc]2 z z/2 [fb]/2 b'2-b'/2 |
+z z/2 [fbb'] D2-D E2-E/2 | B e/2 z/2 [EBe]2-[EBe] E F G | F/2 z z/2 [EG]2 D E2 D | z2 [DE] [Af] [Bg] [fd']2 [db] |
+z D [DBdfgbd']4-[DBdfgbd']2 | E B [EB] E/2 z/2 A2 [DF]2 | z G [DFGA]4-[DFGA]2 | z2 z F G B f2 |
+z2 [GBfb] g2 d e2 | z E b/2 [Edeb]4 F e/2 | z/2 D [Fb] a/2 [DFeab] g f d B | z2 z [DBdfb] f' d'2-d' |
+z2 B [De]/2 z [DBed'] f g a/2 | [ce]/2 b4 [ceab]2-[ceab]-[ceab]/2 | z/2 =D g f =d B/2 z/2 [DBdfg]2 B/2 | z/2 A E d e2 [EBde] F G/2 |
+z/2 B [Ee] F E B [EFGBe] f g/2 | z/2 b [ce]/2 a2-a E/2 [Ecea] e'-e'/2 | z =d/2 [fb]2-[fb] [=Da] [Ddfabd']2 f'/2 | z g/2 [be']4 [Egbe'] F G/2 |
+z/2 B e2-e b [eab] g e/2 | z/2 B c2 g f [cfg] G c/2 | z/2 e f2-f =D [DBf]2-[DBf]/2 | z2 e2-e-e/2 e F G/2 |
+z/2 B e f g b [GBefgbe'] b-b/2 | z/2 g e [FBe]/2 d/2 e E/2 d/2 [EFBe]/2 d/2 [Ge]/2 d/2 e/2 | z/2 b b [Fa] D [Fg] [DFgab] d' [Ac']/2 | z/2 D [fb] e/2 d/2 e-e/2 d/2 [defb] e G/2 |
+z/2 d' [fb]4 [Ffb] G B/2 | z z/2 [Be] E e'2 [EGBee']2 d'/2 | z/2 c' b a D F [DFab] [cc']-[cc']/2 | z z/2 [Bb]4 [DBb] F B/2 |
+z/2 f [Be]2-[Be] E [EBe] f g/2 | z/2 b2-b c' [Ee] [EGebc'] E [Bb]/2 | z/2 a2-a D F [DFAa] f d'/2 | z/2 c' B b2 [Da] [Fa]-[Fa]/2 g |
+z/2 [Df] [Ee]2 E G [Ge] B e/2 | z2 a2-a-a/2 a2 e'/2 | z2 [F=db]2-[F=db]/2 a [Fdab]2 g/2 | z/2 f2-f/2 e2-e/2 [ef] E F/2 |
+z/2 G [Be]2-[Be] b [GBb] g-g/2 | z/2 B c2-c E [EBc] G g/2 | z f4-f/2 [fg] d-d/2 | z2 z z/2 e2 [Fe] [EG]-[EG]/2 |
+z z/2 D [EG]2-[EG] z2 [DEG]/2 | z/2 [EG] [FB] D4-D F/2 | z2 z/2 [DFGB] [EG]2-[EG] [DF] [EG]/2 | z2 z/2 [DEGb]2-[DEGb]/2 f'2 d' |
+z z/2 e/2 [gb]/2 [egbd'e'f']2-[egbd'e'f']/2 z2 z |
+V:2 clef=bass
+z4 C, G,2-G, | [C,G,]2-[C,G,]-[C,G,]/2 z/2 D, A,2-A, | [D,A,]2-[D,A,]-[D,A,]/2 z/2 E, B,2-B, | [E,B,]2-[E,B,]-[E,B,]/2 z z/2 B,2-B, |
+[D,B,]2 B,2 C,, G,, E,2 | [C,,G,,E,B,]4 D, A,2-A, | [D,A,]2-[D,A,] z E, B,2-B, | [E,B,]2-[E,B,]-[E,B,]/2 z4 z/2 |
+z4 C, G,2-G, | [C,G,] G,2 C D, A,2-A, | z/2 [D,A,C]2-[D,A,C]-[D,A,C]/2 z/2 G,, D, A, B,/2 | z [G,,D,A,B,]2-[G,,D,A,B,] D, E,, B,, G, |
+z [E,,B,,D,G,]4 A,, E, C | z [A,,E,C]4 [B,,A,]2-[B,,A,] | z [B,,A,]2-[B,,A,]/2 z z/2 C, G, B, | B, z2 z [C,G,B,]4 |
+z8 | z F,, E, A, C [F,,E,A,C]2-[F,,E,A,C] | F,, B,, =D, A, B, z/2 [F,,B,,D,A,B,]2-[F,,B,,D,A,B,]/2 | z z/2 E,, B,, F, G, [E,,B,,F,G,B,]2 A,/2 |
+z z/2 D, B,2-B, [D,A,B,]2-[D,A,B,]/2 | z z/2 A,, E,2 C z2 z/2 | z z/2 [A,,E,C]2-[A,,E,C]-[A,,E,C]/2 [B,,A,]2-[B,,A,] | z z/2 [B,,A,]2 z4 z/2 |
+z/2 B,/2 B,/2 B,2-B,-B,/2 C,, G,,2 | z2 [C,,G,,] B,2 C,, D,, A,, | z F, [C,,D,,A,,F,A,] [D,A,]2-[D,A,] E,, B,, | B, E, [E,,B,,E,G,B,]2 G,2 E,, B,, |
+B,2 [E,,B,,G,B,]2 B,/2 z/2 A, [A,,B,] E, | z2 [A,,E,G,A,B,]2-[A,,E,G,A,B,] A,, B,, F, | A,2 [A,,B,,F,A,]2-[A,,B,,F,A,] B, E,, B,, | F, G, [E,,B,,F,G,B,]4-[E,,B,,F,G,B,]-[E,,B,,F,G,B,]/2 z/2 |
+z4 z2 [C,,C,] G, | B,2 z/2 [C,,C,G,B,]4 [D,,D,] A,/2 | z2 z [D,,D,A,]2-[D,,D,A,]-[D,,D,A,]/2 z/2 G,, | D, A, B, [G,,D,A,B,] B,2-B, G,, |
+D, G,2 z z/2 [G,,D,G,B,]2-[G,,D,G,B,]-[G,,D,G,B,]/2 | z/2 A,, E, C2 [A,,E,C]2 G,-G,/2 | z/2 B,, F, A,2 z [B,,F,A,]2-[B,,F,A,]/2 | z z/2 C, G, B, B, [C,G,B,]2-[C,G,B,]/2 |
+z z/2 C, B,2-B, [C,B,]2-[C,B,]/2 | z2 F,, E, A, C/2 [F,,E,A,C]2-[F,,E,A,C]/2 | z z/2 B,, F, A,2 [B,,F,A,]2 A,/2 | z z/2 E,, B,, F, G, [E,,B,,F,G,]2-[E,,B,,F,G,]/2 |
+z z/2 D, B, E,2 [D,E,B,]2-[D,E,B,]/2 | z z/2 A,, E, G, C [A,,E,G,C]2-[A,,E,G,C]/2 | z z/2 B,, F, A,2 [B,,F,A,]2-[B,,F,A,]/2 | z2 E,,/2 B,, F, G, [E,,B,,F,G,B,]2-[E,,B,,F,G,B,]/2 |
+z8 | z z/2 C, G, B,2 [C,G,B,]2 B,/2 | z z/2 D, A,2 A, [D,A,]2-[D,A,]/2 | z z/2 E,, B,, G, B, [E,,B,,G,B,] B,-B,/2 |
+z z/2 E,, B,, G, B, [E,,B,,G,B,]2 G,/2 | z z/2 C, G, B,2 [C,G,B,] B,-B,/2 | z z/2 D, A,2 A, [D,A,]2-[D,A,]/2 | z/2 A, G,, D, A, B, [G,,D,A,B,]2-[G,,D,A,B,]/2 |
+z z/2 =G,, E, =G,2 [G,,E,G,]2 B,/2 | z z/2 [A,,E,] G, C2 [A,,E,G,C]2-[A,,E,G,C]/2 | z z/2 D, A,2-A, [D,A,]2-[D,A,]/2 | z z/2 G,, D, B,2 F,, D, A,/2 |
+z z/2 C, G,2-G, z2 z/2 | z2 [F,C]2-[F,C]-[F,C]/2 [F,C]2 z/2 | z2 B,2-B,-B,/2 B,2 z/2 | z2 [E,,E,] B,,/2 E, G, [E,,B,,E,G,B,]2-[E,,B,,E,G,B,]/2 |
+z z/2 =C,4 C,2 z/2 | z z/2 A,, E, C2 [A,,E,C]2-[A,,E,C]/2 | z2 [B,,,B,,]2-[B,,,B,,]-[B,,,B,,]/2 [B,,,B,,]2-[B,,,B,,]/2 | z2 z z/2 E,, B,, [E,,B,,E,]2-[E,,B,,E,]/2 |
+z/2 B,4-B, z2 B,/2 | z4 z z/2 [E,,E,]2 z/2 | z2 z/2 [E,,E,]2-[E,,E,] B,/2 z2 | z8 |
+z z/2 E, E,2 z2 z z/2 |
