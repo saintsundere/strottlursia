@@ -132,8 +132,26 @@ visible, getting ready.
 - Timeline: he knocks at ten in the morning (title screen is the house at night; the
   porch lantern burns regardless of the hour) and should leave by late afternoon.
 
+## Soundtrack (all composed by Clarey)
+| Track | Where it plays | Notes |
+|---|---|---|
+| Her Shape in Coral 2.2 | title & doorstep | B minor, ~90 BPM rubato, 2m42s. Saskia's theme |
+| Wistful Mist of Widowmere 7.0 | Conservatory (haunted) | F minor, 73–96 BPM, 4m00s |
+| Wistful Widow of Mere (8.0 arpeggio) | Conservatory after the hook is taken | F minor arpeggio twin, 2m15s — the room's "different quiet" |
+| — grandfather clock | foyer & halls | synthesized tick/tock; the house keeping time |
+
 ## Build log
-- **v0.1 (this slice):** title → doorstep conversation (router, joke game-over) →
+- **v0.1:** title → doorstep conversation (router, joke game-over) →
   foyer (walk, five hotspots, eight portraits + empty ninth hook, cold-spot warmth
   demo, notebook UI with frosted glasses) → Herald end-card. Saskia's living
-  resting-face portrait throughout.
+  resting-face portrait throughout. Morning arrival; threshold fades music to clock.
+- **v0.2 — the Conservatory ("Shapes Under the Mist"):** glass house + reflecting
+  pond; rising mist as the room's clock (sips warmth; the pole slows it); stone
+  crossing with decoys — probe with the pole, or read the Greywist dimples visible
+  only below 85 warmth; Corwen's floating page (hand vs pole grab); the pinned
+  Greylock (wings breathe below 65; DO NOT WIND); the Greyreaver stands in the mist
+  below 50; trust-gated bank scene (warm blocks poleless crossing, guarded warns,
+  cold says "it's shallow, Corwen—"); the whistle save, on screen, once; the
+  ferryman's-hook memento — taking it surges the room, then settles it into
+  Wistful Widow. Foyer grew a glass door; the pole is takeable (with three
+  flavors of Saskia reaction); notebook tracks carried items and Widowmere status.

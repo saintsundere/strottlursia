@@ -26,6 +26,12 @@
       linear-gradient(to bottom, rgba(188,215,230,.14), transparent 18%);}
   #grade{pointer-events:none;opacity:0;transition:opacity 2s ease;
     background:radial-gradient(90% 80% at 50% 50%, transparent 40%, rgba(6,8,18,.55) 100%);}
+  #consMist{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 2.4s ease;
+    background:
+      linear-gradient(to top, rgba(203,222,216,.9), rgba(203,222,216,.3) 46%, transparent 78%),
+      linear-gradient(to bottom, rgba(203,222,216,.25), transparent 24%);}
+  .breathe{animation:brth 5.5s ease-in-out infinite;transform-origin:742px 276px;}
+  @keyframes brth{50%{transform:scale(1.05);}}
 
   /* ---------- dialogue ---------- */
   #dialog{position:absolute;left:0;right:0;bottom:0;padding:14px 26px 16px;display:none;
@@ -232,7 +238,7 @@
    THE NINTH ROOM — playable slice v0.1
    doorstep router → foyer → herald end-card
    ================================================================ */
-const MUSIC = /*__MUSIC__*/null;
+const TRACKS = /*__MUSIC__*/null;   // {coral, mist, widow} — all composed by Clarey
 
 const $ = s => document.querySelector(s);
 const stage = $('#stage'), sceneL = $('#scene'), spritesL = $('#sprites');
@@ -256,19 +262,19 @@ addEventListener('resize', fit); fit();
    MUSIC — tiny WebAudio piano for Clarey's MIDI
    ================================================================ */
 const Snd = {
-  ctx:null, master:null, musicGain:null, on:true, timer:null, startAt:0, idx:0,
+  ctx:null, master:null, musicGain:null, on:true, timer:null,
+  track:null, startAt:0, idx:0, swapT:null,
   clockTimer:null, nextTick:0, tickN:0, noise:null,
   begin(){
-    if (this.ctx || !MUSIC) return;
+    if (this.ctx || !TRACKS) return;
     const C = new (window.AudioContext||window.webkitAudioContext)();
     this.ctx = C;
     const comp = C.createDynamicsCompressor();
     comp.threshold.value = -18; comp.ratio.value = 6;
     this.master = C.createGain(); this.master.gain.value = 0.85;
     this.master.connect(comp); comp.connect(C.destination);
-    this.musicGain = C.createGain(); this.musicGain.gain.value = 1;
+    this.musicGain = C.createGain(); this.musicGain.gain.value = 0;
     this.musicGain.connect(this.master);
-    this.startAt = C.currentTime + 0.35; this.idx = 0;
     this.timer = setInterval(()=>this.pump(), 120);
   },
   setMusic(on, fade=2){
@@ -276,6 +282,24 @@ const Snd = {
     const g = this.musicGain.gain, t = this.ctx.currentTime;
     g.cancelScheduledValues(t); g.setValueAtTime(g.value, t);
     g.linearRampToValueAtTime(on ? 1 : 0, t + fade);
+  },
+  play(name, fade=1.8){
+    if (!this.ctx || !TRACKS || !TRACKS[name]) return;
+    if (this.track === name){ this.setMusic(true, fade); return; }
+    clearTimeout(this.swapT);
+    const hadTrack = !!this.track;
+    if (hadTrack) this.setMusic(false, fade);
+    this.swapT = setTimeout(()=>{
+      this.track = name; this.idx = 0;
+      this.startAt = this.ctx.currentTime + 0.3;
+      this.setMusic(true, hadTrack ? 1.4 : 0.8);
+    }, hadTrack ? fade*1000 : 0);
+  },
+  stop(fade=2){
+    if (!this.ctx) return;
+    clearTimeout(this.swapT);
+    this.setMusic(false, fade);
+    this.swapT = setTimeout(()=>{ this.track = null; }, fade*1000 + 100);
   },
   clockStart(){
     if (!this.ctx || this.clockTimer) return;
@@ -303,14 +327,15 @@ const Snd = {
     src.start(when); src.stop(when + 0.06);
   },
   pump(){
-    if (!this.on) return;
-    const C = this.ctx, notes = MUSIC.notes, ahead = C.currentTime + 0.45;
+    if (!this.on || !this.track) return;
+    const T = TRACKS[this.track];
+    const C = this.ctx, notes = T.notes, ahead = C.currentTime + 0.45;
     while (this.idx < notes.length && this.startAt + notes[this.idx][0] < ahead){
       const [t, m, d, v] = notes[this.idx++];
       this.voice(this.startAt + t, m, d, v);
     }
     if (this.idx >= notes.length){                       // loop with a breath
-      this.startAt = this.startAt + MUSIC.duration + 4.5;
+      this.startAt = this.startAt + T.duration + 4.5;
       this.idx = 0;
     }
   },
@@ -558,7 +583,7 @@ Scenes.title = {
 /* ---------- DOORSTEP ---------- */
 Scenes.doorstep = {
   enter(){
-    Snd.setMusic(true, 1.5); Snd.clockStop();
+    Snd.play('coral', 1.5); Snd.clockStop();
     sceneL.innerHTML = `
     <svg viewBox="0 0 960 540" width="960" height="540">
       ${SKY}
@@ -760,7 +785,7 @@ const Tom = { x:130, y:470, tx:130, ty:470, speed:150, walking:false, frame:0, f
 Scenes.foyer = {
   hotspots: [], raf: null, last: 0,
   enter(){
-    Snd.setMusic(false, 2.5); Snd.clockStart();   // her theme stays on the porch; the house keeps time instead
+    Snd.stop(2.5); Snd.clockStart();   // her theme stays on the porch; the house keeps time instead
     const below50 = G.minWarmth < 50;
     sceneL.innerHTML = `
     <svg viewBox="0 0 960 540" width="960" height="540" id="foyerSVG">
@@ -851,6 +876,20 @@ Scenes.foyer = {
         <circle cx="832" cy="336" r="5" fill="var(--gold)"/>
         <rect x="768" y="260" width="74" height="10" fill="#241b30"/>
       </g>
+      <!-- glass door to the conservatory -->
+      <g id="hsGlass">
+        <rect x="330" y="296" width="100" height="124" fill="#22303f"/>
+        <rect x="337" y="303" width="40" height="110" fill="#7fa393"/>
+        <rect x="383" y="303" width="40" height="110" fill="#7fa393"/>
+        <path d="M337,303 L377,303 L377,340 L337,368 Z" fill="#a8c4b2" opacity=".55"/>
+        <path d="M383,303 L423,303 L423,340 L383,368 Z" fill="#a8c4b2" opacity=".55"/>
+        <line x1="357" y1="303" x2="357" y2="413" stroke="#22303f" stroke-width="3"/>
+        <line x1="403" y1="303" x2="403" y2="413" stroke="#22303f" stroke-width="3"/>
+        <line x1="337" y1="358" x2="377" y2="358" stroke="#22303f" stroke-width="3"/>
+        <line x1="383" y1="358" x2="423" y2="358" stroke="#22303f" stroke-width="3"/>
+        <circle cx="374" cy="364" r="3.4" fill="var(--gold)"/><circle cx="386" cy="364" r="3.4" fill="var(--gold)"/>
+        <ellipse cx="380" cy="420" rx="54" ry="5" fill="#7fa393" opacity=".25" class="flicker"/>
+      </g>
       <!-- cellar door -->
       <g id="hsCellar">
         <rect x="560" y="300" width="74" height="120" fill="#171129"/>
@@ -865,8 +904,10 @@ Scenes.foyer = {
       <g id="hsPole">
         <rect x="676" y="352" width="34" height="60" rx="6" fill="#2a3358"/>
         <rect x="676" y="352" width="34" height="10" rx="4" fill="#39456f"/>
-        <line x1="694" y1="358" x2="700" y2="150" stroke="#6d4a2c" stroke-width="6" stroke-linecap="round"/>
-        <path d="M700,150 q10,-6 6,-18" fill="none" stroke="#8f8f98" stroke-width="5" stroke-linecap="round"/>
+        ${G.flags.pole ? '' : `<g id="poleShaft">
+          <line x1="694" y1="358" x2="700" y2="150" stroke="#6d4a2c" stroke-width="6" stroke-linecap="round"/>
+          <path d="M700,150 q10,-6 6,-18" fill="none" stroke="#8f8f98" stroke-width="5" stroke-linecap="round"/>
+        </g>`}
         <line x1="686" y1="360" x2="684" y2="300" stroke="#171129" stroke-width="4" stroke-linecap="round"/>
       </g>
       <!-- front door -->
@@ -902,16 +943,27 @@ Scenes.foyer = {
   exit(){ cancelAnimationFrame(this.raf); $('#hud').classList.remove('on'); },
 
   async intro(){
-    if (G.seen.foyerIntro) return;
-    G.seen.foyerIntro = true;
-    if (G.route === 'escort'){
-      await say([['N','The foyer smells like a church that changed religions. Saskia stops at the foot of the stairs and does not put the keys away.'],
-                 ['S','“Well. Photograph it, project-boy.”']]);
-    } else {
-      await say([['N','The foyer smells like a church that changed religions. From somewhere left, the sound of a kettle — she meant it about the kitchen.'],
-                 ['N','Nobody is watching you. In this house that is not the same as being unobserved.']]);
+    if (!G.seen.foyerIntro){
+      G.seen.foyerIntro = true;
+      if (G.route === 'escort'){
+        await say([['N','The foyer smells like a church that changed religions. Saskia stops at the foot of the stairs and does not put the keys away.'],
+                   ['S','“Well. Photograph it, project-boy.”']]);
+      } else {
+        await say([['N','The foyer smells like a church that changed religions. From somewhere left, the sound of a kettle — she meant it about the kitchen.'],
+                   ['N','Nobody is watching you. In this house that is not the same as being unobserved.']]);
+      }
+      hint('click the floor to walk · click things to look');
+      return;
     }
-    hint('click the floor to walk · click things to look');
+    if (G.flags.memento && !G.seen.hookBack){
+      G.seen.hookBack = true;
+      if (G.route === 'escort'){
+        if (G.trust >= 59) await say([['S','Her eyes go to the hook in your satchel and stay there one full tick of the clock. “…Keep it somewhere warm.”']]);
+        else await say([['S','“The house saw that.” It is not clear she means it as a warning. It is not clear she means it as anything.']]);
+      } else {
+        await say([['N','The foyer clock does not change its pace. Somehow this is worse than if it had.']]);
+      }
+    }
   },
 
   bind(){
@@ -935,6 +987,7 @@ Scenes.foyer = {
     this.hotspots = [
       {sel:'#hsChandelier', x:600, name:'the chandelier',    fn:()=>this.chandelier()},
       {sel:'#hsPortraits',  x:390, name:'the eight portraits', fn:()=>this.portraits()},
+      {sel:'#hsGlass',      x:380, name:'the glass door',    fn:()=>this.glass()},
       {sel:'#hsPole',       x:690, name:'the umbrella stand', fn:()=>this.pole()},
       {sel:'#hsCellar',     x:598, name:'the cellar door',   fn:()=>this.cellar()},
       {sel:'#hsEast',       x:800, name:'the east door',     fn:()=>this.east()},
@@ -1007,15 +1060,51 @@ Scenes.foyer = {
   },
   async pole(){
     await busy(async ()=>{
-      await say([['N','An umbrella stand holding one umbrella and one pole three times too long for it. Riverwood, worn silver at the grip. A hook at the top like a question mark.']]);
-      if (G.route==='escort'){
-        await say([['S','“It’s a punt pole. We are nowhere near water.” She says it flat, like a line she rehearses in the mirror.']]);
-      } else {
-        await say([['N','You lift it. Burned into the shaft, small and neat: eight sets of initials. The earliest ones are spelled in an alphabet you almost know.'],
-                   ['T','“…M. Every surname M.”']]);
-        G.flags.poleInitials = true;
+      if (G.flags.pole){
+        await say([['N','The stand keeps its one umbrella now. It looks relieved.']]);
+        return;
       }
-      G.seen.pole = true;
+      if (!G.seen.pole){
+        await say([['N','An umbrella stand holding one umbrella and one pole three times too long for it. Riverwood, worn silver at the grip. A hook at the top like a question mark with the answer snapped off.']]);
+        if (G.route==='escort'){
+          await say([['S','“It’s a punt pole. We are nowhere near water.” She says it flat, like a line she rehearses in the mirror.']]);
+        } else {
+          await say([['N','You lift it. Burned into the shaft, small and neat: eight sets of initials. The earliest ones are spelled in an alphabet you almost know.'],
+                     ['T','“…M. Every surname M.”']]);
+          G.flags.poleInitials = true;
+        }
+        G.seen.pole = true;
+      }
+      const esc = G.route==='escort', t = G.trust;
+      const nodes = {
+        q:{sp:'N', text:'The pole is not nailed down.', choices:[
+          {text:'Take the pole.', next:'take'},
+          {text:'Leave it be.', next:'leave'},
+        ]},
+        take:{do:()=>{
+          G.flags.pole = true;
+          const el = sceneL.querySelector('#poleShaft'); if (el) el.style.display = 'none';
+          return 'took';
+        }},
+        took:{sp:'N', text:'It is lighter than it should be, and it settles into your grip like it has opinions about hands.',
+          next: esc ? (t>=59 ? 'sw' : t>=39 ? 'sg' : 'sc') : 'fin'},
+        sw:{sp:'S', face:'longlook', text:'“Good.” Quietly, to the window: “Keep it between you and the water.”', end:true},
+        sg:{sp:'S', text:'“That’s not yours.” But she does not take it back.', end:true},
+        sc:{sp:'N', text:'She watches you take it and says nothing. Somewhere, without pen or paper, something gets written down.', end:true},
+        leave:{sp:'N', text:'You leave it. It leans. The lean follows you a little on the way out of the corner of your eye.', end:true},
+        fin:{end:true},
+      };
+      await D.run(nodes, 'q');
+    });
+  },
+  async glass(){
+    await busy(async ()=>{
+      if (!G.seen.glassIntro){
+        G.seen.glassIntro = true;
+        await say([['N','Green light through fogged panes, and a line of damp along the threshold. The air under this door is warmer than the foyer and wetter than the lawn.']]);
+        if (G.route==='escort') await say([['S','“The Conservatory.” The keys choose this moment to be very loud. “Stay on the near side of the water.”']]);
+      }
+      go('conservatory');
     });
   },
   async cellar(){
@@ -1083,6 +1172,440 @@ Scenes.foyer = {
   },
 };
 
+/* ================================================================
+   CONSERVATORY — "Shapes Under the Mist"
+   ================================================================ */
+Scenes.conservatory = {
+  raf:null, last:0, mistT:null, hopping:false, drainAcc:0,
+  // stone ring: index → {x,y,safe}
+  stones: [
+    {x:395, y:462, safe:true }, {x:452, y:455, safe:false},
+    {x:478, y:436, safe:true }, {x:543, y:426, safe:true },
+    {x:608, y:418, safe:false}, {x:625, y:398, safe:true },
+    {x:676, y:384, safe:true },
+  ],
+  BANK: {x:370, y:486}, LEDGE: {x:700, y:372},
+
+  enter(){
+    Snd.clockStop();
+    Snd.play(G.flags.memento ? 'widow' : 'mist', 2);
+    const st = G.cons = G.cons || {pos:'bank', stone:-1, gateShown:false, whistleUsed:false};
+    st.pos = 'bank'; st.stone = -1;
+    this.mist = G.flags.memento ? 12 : 0;
+    this.drainAcc = 0;
+    const cold85 = G.warmth < 85, cold65 = G.warmth < 65, cold50 = G.warmth < 50;
+
+    sceneL.innerHTML = `
+    <svg viewBox="0 0 960 540" width="960" height="540" id="consSVG">
+      <defs>
+        <linearGradient id="cGlass" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#a3bdb2"/><stop offset=".55" stop-color="#77948f"/>
+          <stop offset="1" stop-color="#41605f"/>
+        </linearGradient>
+        <linearGradient id="cPond" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#1b2c34"/><stop offset="1" stop-color="#0e1b21"/>
+        </linearGradient>
+      </defs>
+      <rect width="960" height="460" fill="url(#cGlass)"/>
+      <!-- glazing bars -->
+      <g stroke="#26333d" stroke-width="5" opacity=".85">
+        ${[96,192,288,384,480,576,672,768,864].map(x=>`<line x1="${x}" y1="0" x2="${x}" y2="460"/>`).join('')}
+        <line x1="0" y1="92" x2="960" y2="92"/><line x1="0" y1="212" x2="960" y2="212"/><line x1="0" y1="332" x2="960" y2="332"/>
+      </g>
+      <path d="M0,26 L960,2" stroke="#26333d" stroke-width="8" fill="none"/>
+      <!-- plants -->
+      <g fill="#1d3b32" opacity=".95">
+        <path d="M0,460 C40,380 30,320 70,280 C90,340 80,400 110,460 Z"/>
+        <path d="M60,460 C110,400 100,340 150,320 C160,380 140,420 170,460 Z"/>
+        <path d="M900,460 C880,380 900,330 870,300 C850,360 870,410 840,460 Z"/>
+        <path d="M930,460 C950,390 940,350 960,320 L960,460 Z"/>
+      </g>
+      <g stroke="#254a3d" stroke-width="4" fill="none" opacity=".8">
+        <path d="M240,0 C250,60 230,90 250,130"/><path d="M520,0 C510,50 540,80 525,120"/>
+        <path d="M700,0 C710,40 690,70 705,105"/>
+      </g>
+      <g fill="#254a3d" opacity=".8">
+        <ellipse cx="250" cy="132" rx="6" ry="12"/><ellipse cx="525" cy="122" rx="6" ry="12"/><ellipse cx="705" cy="107" rx="6" ry="12"/>
+      </g>
+      <!-- wipe pane -->
+      <rect id="hsPane" x="150" y="216" width="130" height="112" fill="#c2d6cc" opacity=".28"/>
+      <!-- far ledge -->
+      <rect x="0" y="330" width="960" height="46" fill="#2c3a44"/>
+      <line x1="0" y1="332" x2="960" y2="332" stroke="#3d4f5c" stroke-width="3"/>
+      <!-- exhibit case -->
+      <g id="hsExhibit">
+        <rect x="690" y="230" width="104" height="102" fill="#0f1d24" opacity=".55"/>
+        <rect x="690" y="230" width="104" height="102" fill="none" stroke="#cfd8dc" stroke-width="2.5" opacity=".8"/>
+        <line x1="742" y1="230" x2="742" y2="238" stroke="var(--gold)" stroke-width="2"/>
+        <g id="greylock">
+          <g id="greylockWings" ${cold65 ? 'class="breathe"' : ''}>
+            <path d="M742,268 C716,246 700,252 698,272 C696,290 716,296 738,286 Z" fill="#5c6274" opacity=".9"/>
+            <path d="M742,268 C768,246 784,252 786,272 C788,290 768,296 746,286 Z" fill="#5c6274" opacity=".9"/>
+            <path d="M742,272 C722,262 712,266 710,276 Z" fill="#8b93a8" opacity=".7"/>
+            <path d="M742,272 C762,262 772,266 774,276 Z" fill="#8b93a8" opacity=".7"/>
+          </g>
+          <ellipse cx="742" cy="280" rx="9" ry="13" fill="#2c2f3c"/>
+          <circle cx="742" cy="266" r="6" fill="#2c2f3c"/>
+          <g stroke="#2c2f3c" stroke-width="2.4" fill="none">
+            <path d="M735,276 C726,280 720,288 718,296"/><path d="M749,276 C758,280 764,288 766,296"/>
+            <path d="M736,284 C728,290 724,298 723,304"/><path d="M748,284 C756,290 760,298 761,304"/>
+          </g>
+        </g>
+        <rect x="700" y="318" width="84" height="9" fill="#8a6f3c"/>
+      </g>
+      <!-- hook stand -->
+      <g id="hsHook" ${G.flags.memento ? 'style="display:none"' : ''}>
+        <rect x="828" y="292" width="26" height="40" rx="3" fill="#3a2c3c"/>
+        <rect x="824" y="288" width="34" height="8" rx="2" fill="#4c3a4e"/>
+        <path d="M841,288 C841,270 856,268 858,278" fill="none" stroke="#9aa4ad" stroke-width="5" stroke-linecap="round"/>
+      </g>
+      ${cold50 ? `<g id="reaver" opacity=".38">
+        <path d="M905,150 C880,190 890,240 875,290 C905,280 915,300 900,330 L945,330 C940,270 950,200 935,150 Z" fill="#8fa4a8"/>
+        <path d="M885,200 C870,214 866,232 870,246" stroke="#8fa4a8" stroke-width="6" fill="none"/>
+        <path d="M940,210 C952,224 954,240 950,252" stroke="#8fa4a8" stroke-width="6" fill="none"/>
+      </g>` : ''}
+      <!-- pond -->
+      <rect x="0" y="376" width="960" height="94" fill="url(#cPond)"/>
+      <g stroke="#2f4e57" stroke-width="2" opacity=".5">
+        <path d="M40,400 q60,-6 120,0 t120,0"/><path d="M520,432 q70,-8 140,0"/><path d="M700,398 q50,-5 100,0"/>
+      </g>
+      <!-- corwen's page -->
+      ${G.flags.page ? '' : `<g id="hsPage" transform="rotate(-8 558 448)">
+        <rect x="546" y="442" width="26" height="16" rx="1.5" fill="#e6dcc2"/>
+        <g stroke="#8a8064" stroke-width="1"><line x1="550" y1="446" x2="566" y2="446"/><line x1="550" y1="450" x2="568" y2="450"/><line x1="550" y1="454" x2="561" y2="454"/></g>
+      </g>`}
+      <!-- stones -->
+      ${this.stones.map((s,i)=>`
+        <g id="stone${i}" class="hot">
+          <ellipse cx="${s.x}" cy="${s.y}" rx="26" ry="9" fill="#39454e"/>
+          <ellipse cx="${s.x}" cy="${s.y-2}" rx="22" ry="6.5" fill="#4c5a63"/>
+          ${cold85 && s.safe && !G.flags.memento ? `<g opacity=".55" class="flicker">
+            <circle cx="${s.x-8}" cy="${s.y-4}" r="2" fill="none" stroke="#cfe8ea" stroke-width="1.2"/>
+            <circle cx="${s.x+7}" cy="${s.y-3}" r="2.6" fill="none" stroke="#cfe8ea" stroke-width="1.2"/>
+          </g>` : ''}
+          <g id="ring${i}" style="display:none" opacity=".7">
+            <ellipse cx="${s.x}" cy="${s.y}" rx="30" ry="11" fill="none" stroke="#cfe8ea" stroke-width="1.5" stroke-dasharray="5 4"/>
+          </g>
+        </g>`).join('')}
+      <!-- near bank -->
+      <rect x="0" y="470" width="960" height="70" fill="#2b3947"/>
+      <g stroke="#20303c" stroke-width="2" opacity=".9">
+        <line x1="0" y1="492" x2="960" y2="492"/><line x1="0" y1="516" x2="960" y2="516"/>
+        <line x1="180" y1="470" x2="160" y2="540"/><line x1="420" y1="470" x2="410" y2="540"/><line x1="700" y1="470" x2="710" y2="540"/>
+      </g>
+      <!-- door back to foyer -->
+      <g id="hsExit">
+        <rect x="28" y="330" width="66" height="132" fill="#171129"/>
+        <rect x="33" y="336" width="56" height="126" fill="var(--wood)"/>
+        <circle cx="80" cy="402" r="4.5" fill="var(--gold)"/>
+      </g>
+      <rect id="consFloor" class="walk" x="0" y="468" width="960" height="72" fill="transparent"/>
+    </svg>
+    <div id="consMist"></div>`;
+
+    spritesL.innerHTML = tomrenSVG() + (G.route==='escort' ? saskiaSVG(262, 392) : '');
+    Tom.x = Tom.tx = 130; Tom.y = Tom.ty = 490; Tom.busy = false; Tom.pending = null;
+    applyWarmth();
+    $('#hud').classList.add('on');
+    this.bind();
+    this.loop(performance.now());
+    this.mistT = setInterval(()=>this.mistPump(), 1000);
+    this.intro();
+  },
+  exit(){
+    cancelAnimationFrame(this.raf);
+    clearInterval(this.mistT);
+    $('#hud').classList.remove('on');
+  },
+
+  async intro(){
+    if (!G.seen.consIntro){
+      G.seen.consIntro = true;
+      await busy(async ()=>{
+        await say([['N','The Conservatory answers the door before you touch it — a breath of wet green air, pushing out past you like something leaving. Glass above, glass around, all of it fogged from the inside.']]);
+        if (G.route==='escort') await say([['S','“Mind the pond.” She stops exactly one flagstone into the room, as if the floor ends there for her.']]);
+        await say([['N','Across the water, on the far ledge: a display case. Something in it has wings.']]);
+        hint('cross stone by stone · the pole probes ahead');
+      });
+    }
+  },
+
+  bind(){
+    const svg = sceneL.querySelector('#consSVG');
+    const pt = e => {
+      const r = svg.getBoundingClientRect();
+      return { x:(e.clientX-r.left)*960/r.width, y:(e.clientY-r.top)*540/r.height };
+    };
+    svg.querySelector('#consFloor').addEventListener('click', e=>{
+      if (Tom.busy || this.hopping || D.el.classList.contains('on')) return;
+      if (G.cons.pos !== 'bank'){                              // mid-pond: the bank is a stone too
+        if (this.reach(this.pos(), this.BANK)) this.hopTo(this.BANK, ()=>{ G.cons.pos='bank'; G.cons.stone=-1; });
+        else hint('one stone at a time');
+        return;
+      }
+      const p = pt(e);
+      Tom.tx = Math.max(112, Math.min(430, p.x));
+      Tom.ty = Math.max(478, Math.min(514, p.y));
+    });
+    const hots = [
+      ['#hsPane',    'the fogged pane',   ()=>this.pane()],
+      ['#hsExhibit', 'the display case',  ()=>this.exhibit()],
+      ['#hsHook',    'the iron hook',     ()=>this.hook()],
+      ['#hsPage',    'something floating',()=>this.page()],
+      ['#hsExit',    'back to the foyer', ()=>this.leave()],
+    ];
+    for (const [sel, name, fn] of hots){
+      const el = svg.querySelector(sel);
+      if (!el) continue;
+      el.classList.add('hot');
+      el.addEventListener('mouseenter', ()=>hint(name));
+      el.addEventListener('mouseleave', ()=>hint(''));
+      el.addEventListener('click', e=>{
+        e.stopPropagation();
+        if (Tom.busy || this.hopping || D.el.classList.contains('on')) return;
+        fn();
+      });
+    }
+    this.stones.forEach((s,i)=>{
+      const el = svg.querySelector('#stone'+i);
+      el.addEventListener('mouseenter', ()=>hint('a stepping stone'));
+      el.addEventListener('mouseleave', ()=>hint(''));
+      el.addEventListener('click', e=>{
+        e.stopPropagation();
+        if (Tom.busy || this.hopping || D.el.classList.contains('on')) return;
+        this.tryStone(i);
+      });
+    });
+  },
+
+  pos(){
+    const st = G.cons;
+    return st.pos==='bank' ? this.BANK : st.pos==='far' ? this.LEDGE : this.stones[st.stone];
+  },
+  reach(a, b){ return Math.abs(a.x-b.x) <= 100 && Math.abs(a.y-b.y) <= 46; },
+
+  async tryStone(i){
+    const st = G.cons, s = this.stones[i], from = this.pos();
+    if (!this.reach(from, s)){ hint('too far — one stone at a time'); return; }
+    if (st.pos==='bank' && !st.gateShown){
+      st.gateShown = true;
+      const blocked = await this.bankGate();
+      if (blocked) return;
+    }
+    if (st.pos==='bank' && G.route==='escort' && G.trust>=59 && !G.flags.pole && !G.flags.memento){
+      await busy(()=>say([['S','“Pole.” That is the whole sentence, and it is load-bearing.']]));
+      return;
+    }
+    if (!s.safe && !G.flags.memento){
+      if (G.flags.pole){
+        await busy(async ()=>{
+          sceneL.querySelector('#ring'+i).style.display = '';
+          await say([['N','The pole goes down, and down, and touches nothing. That one is not a stone. The ripple it leaves is in the shape of a leg.']]);
+        });
+        return;
+      }
+      await this.slip(i);
+      return;
+    }
+    await this.hopTo(s, ()=>{ st.pos='stone'; st.stone=i; });
+  },
+
+  async bankGate(){
+    const esc = G.route==='escort', t = G.trust;
+    if (esc && t>=59 && !G.flags.pole && !G.flags.memento){
+      await busy(()=>say([['S','“Not without the pole.” It is not a suggestion. She has taken hold of the door frame.']]));
+      return true;
+    }
+    await busy(async ()=>{
+      if (esc && t>=49) await say([['S','“There are stones.” A breath. “Some of them are stones.”']]);
+      else if (esc && t>=39) await say([['S','“Mind your step.” She says it to the water, not to you.']]);
+      else if (esc){
+        await say([['S','“It’s shallow. Corwen—” She folds the rest of the sentence away somewhere you can’t watch.']]);
+        G.flags.corwenSlip = true;
+      }
+      else await say([['N','The stones look patient. The water looks patient. Everything in this room can afford patience except you.']]);
+    });
+    return false;
+  },
+
+  async slip(i){
+    const st = G.cons, s = this.stones[i];
+    this.hopping = true;
+    await this.animateHop(s, 200);
+    this.hopping = false;
+    const saved = G.route==='escort' && G.trust>=49 && !st.whistleUsed;
+    await busy(async ()=>{
+      if (saved){
+        st.whistleUsed = true; G.flags.whistleSeen = true;
+        stealWarmth(4);
+        setFace('startle');
+        await say([['N','The stone is not a stone. Your foot goes through the skin of the world—'],
+                   ['N','One note. Not loud. The mist lies down flat, all of it, at once, obedient — and your hand finds stone that was not there before.'],
+                   ['S','On the bank, Saskia lowers the gold whistle from her lips. She does not put it away again for the rest of the room.']]);
+      } else {
+        const tripped = stealWarmth(12);
+        await say([['N','The stone is not a stone. The water is exactly as deep as the legend needs it to be — and cold does the counting for you: twelve.'],
+                   ['N','You haul yourself back to the bank, streaming, lighter in a way that has nothing to do with water.']]);
+        if (tripped) await this.ledgerLines();
+        if (G.route==='escort' && G.trust<39) await say([['S','From the bank, mildly: “Shallow-ish.”']]);
+      }
+    });
+    const back = saved ? this.stones.filter((x,xi)=>x.safe && this.reach(x, s))[0] : null;
+    if (saved && back){
+      await this.hopTo(back, ()=>{ st.pos='stone'; st.stone=this.stones.indexOf(back); });
+    } else {
+      await this.hopTo(this.BANK, ()=>{ st.pos='bank'; st.stone=-1; });
+    }
+  },
+
+  async ledgerLines(){
+    await say([['N','Something in the ledger of the house turns a page. A door you will never get to see — closes.'],
+               ['N','<span class="em">Warmth has fallen below half. In the full game, the human good ending just left the building.</span>']]);
+  },
+
+  hopTo(target, apply){
+    return new Promise(res=>{
+      this.hopping = true;
+      const sx = Tom.x, sy = Tom.y, dx = target.x - sx, dy = (target.y - (target===this.BANK ? 4 : 14)) - sy;
+      const t0 = performance.now(), dur = 330;
+      const step = now=>{
+        const k = Math.min(1, (now-t0)/dur);
+        Tom.x = sx + dx*k; Tom.y = sy + dy*k - Math.sin(k*Math.PI)*26;
+        Tom.dir = dx<0 ? -1 : 1;
+        if (k<1) requestAnimationFrame(step);
+        else { apply && apply(); Tom.tx=Tom.x; Tom.ty=Tom.y; this.hopping=false; res(); }
+      };
+      requestAnimationFrame(step);
+    });
+  },
+
+  loop(now){
+    const dt = Math.min(0.05, (now-(this.last||now))/1000); this.last = now;
+    const tom = $('#tom');
+    if (G.cons.pos==='bank' && !this.hopping){
+      const dx = Tom.tx-Tom.x, dy = Tom.ty-Tom.y, dist = Math.hypot(dx,dy);
+      if (dist>3 && !Tom.busy){
+        Tom.walking = true;
+        Tom.dir = dx<-1 ? -1 : dx>1 ? 1 : Tom.dir;
+        Tom.x += dx/dist*Tom.speed*dt; Tom.y += dy/dist*Tom.speed*dt*.7;
+        Tom.ft += dt; if (Tom.ft>0.15){ Tom.ft=0; Tom.frame=1-Tom.frame; }
+      } else { Tom.walking=false; Tom.frame=0; }
+    }
+    if (tom){
+      const sc = 0.62 + Math.max(0,(Tom.y-380))*0.0024;
+      tom.style.left = (Tom.x-33)+'px';
+      tom.style.top  = (Tom.y-102)+'px';
+      tom.querySelector('#tomFlip').setAttribute('transform', `scale(${Tom.dir*sc} ${sc})`);
+      tom.querySelector('#legA').style.display = Tom.frame ? 'none':'';
+      tom.querySelector('#legB').style.display = Tom.frame ? '':'none';
+    }
+    this.raf = requestAnimationFrame(t=>this.loop(t));
+  },
+
+  mistPump(){
+    if (D.el.classList.contains('on')) return;             // the room waits its turn
+    if (!G.flags.memento) this.mist = Math.min(100, this.mist + 1.1);
+    const m = $('#consMist');
+    if (m) m.style.opacity = Math.min(.92, this.mist/100);
+    if (this.mist > 22 && !G.flags.memento){
+      this.drainAcc++;
+      const every = G.flags.pole ? 9 : 5;
+      if (this.drainAcc >= every){
+        this.drainAcc = 0;
+        const tripped = stealWarmth(1);
+        if (!G.seen.mistDrink){ G.seen.mistDrink = true; hint('the mist is drinking · check ✎'); }
+        if (tripped) busy(()=>this.ledgerLines());
+      }
+    }
+  },
+
+  async pane(){
+    await busy(async ()=>{
+      if (G.cons.pos!=='bank'){ hint('not from out there'); return; }
+      await say([['N','You wipe a circle in the nearest pane. The fog is on the outside. It wipes anyway.']]);
+      if (!G.seen.paneCircles){
+        G.seen.paneCircles = true;
+        await say([['N','Through the circle: the lawn. From this angle you can finally read the mowing. It is not circles. It is one circle, drawn eight times, waiting to be drawn again.']]);
+      }
+    });
+  },
+
+  async page(){
+    const st = G.cons;
+    if (!(st.pos==='stone' && (st.stone===2 || st.stone===3))){ hint('can’t reach it from here'); return; }
+    await busy(async ()=>{
+      await say([['N','A page, floating face-up, dry-side-up, in defiance of several policies water usually has. Corwen’s handwriting — you would know it anywhere: <span class="em">ferry logs 1802–. eight generations. every keeper one family. M—</span>'],
+                 ['N','The word ends midstroke.']]);
+      const nodes = {
+        q:{sp:'N', text:'It is an arm’s length out over open water.', choices:[
+          {text:'Reach for it by hand.', next:'hand'},
+          {text:'Skate it home with the pole.', next:'pole', hide:()=>!G.flags.pole},
+        ]},
+        hand:{do:()=>{ stealWarmth(3); return 'hand2'; }},
+        hand2:{sp:'N', text:'You reach. The pond reaches back — a lurch, a lungful of fright, three degrees gone to somewhere with a ledger. But the page is yours.', end:true},
+        pole:{sp:'N', text:'You skate it across the surface with the pole, the way eight generations of one family landed their fares.', end:true},
+      };
+      await D.run(nodes, 'q');
+      G.flags.page = true;
+      const el = sceneL.querySelector('#hsPage'); if (el) el.style.display='none';
+      hint('the notebook felt that · check ✎');
+    });
+  },
+
+  async exhibit(){
+    if (G.cons.pos!=='far' && !(G.cons.pos==='stone' && G.cons.stone>=5)){ hint('cross the water first'); return; }
+    if (G.cons.pos!=='far') await this.hopTo(this.LEDGE, ()=>{ G.cons.pos='far'; G.cons.stone=-1; });
+    await busy(async ()=>{
+      await say([['N','The Greylock. Wingspan of a dinner tray, pinned under museum glass, with a brass plate someone engraved by hand: <span class="em">WIDOWMERE — DO NOT WIND.</span>']]);
+      if (G.warmth < 65) await say([['N','The wings are moving. Slowly. In and out. On a pinned thing. Like patient lungs that have read your project and found it thorough.']]);
+      if (G.warmth < 50) await say([['N','And in the far corner, the mist is standing up in the shape of something with too many shoulders. It is politely facing away. It has been facing away the entire time you have been in this room.']]);
+      G.seen.greylock = true;
+    });
+  },
+
+  async hook(){
+    if (G.cons.pos!=='far' && !(G.cons.pos==='stone' && G.cons.stone>=5)){ hint('cross the water first'); return; }
+    if (G.cons.pos!=='far') await this.hopTo(this.LEDGE, ()=>{ G.cons.pos='far'; G.cons.stone=-1; });
+    await busy(async ()=>{
+      await say([['N','Beside the case, on a velvet stand: an iron hook — the head of a ferryman’s pole, worn silver to match the shaft standing in the foyer. It is the only thing in this room with no dust on it.']]);
+      const nodes = {
+        q:{sp:'N', text:'It would come away easily. Things that come away easily are usually held down by something other than weight.', choices:[
+          {text:'Take the hook.', next:'take'},
+          {text:'Leave it on the stand.', next:'leave'},
+        ]},
+        take:{end:'take'}, leave:{end:'leave'},
+      };
+      const r = await D.run(nodes, 'q');
+      if (r !== 'take'){
+        await say([['N','You leave it. Your hand takes a moment to agree.']]);
+        return;
+      }
+      G.flags.memento = true;
+      Snd.play('widow', 2.5);
+      const m = $('#consMist'); if (m){ m.style.opacity = 1; }
+      await say([['N','The moment your fingers close, the room inhales. Every pane fogs at once — from the inside. The pond loses its stones. No. The stones stop pretending to be gone.'],
+                 ['N','The mist stands up. All of it. Everywhere. And then—'],
+                 ['N','—it settles. Slowly. Like a house deciding, for now, to go on being a house. The Conservatory is quiet. It is a different quiet than before, and it has a different song in it.']]);
+      this.mist = 12;
+      const hk = sceneL.querySelector('#hsHook'); if (hk) hk.style.display='none';
+      if (G.route==='escort'){
+        if (G.trust>=59) await say([['S','From the bank, very level, not loudly: “Tomren. Walk back now, please. Not quickly.”']]);
+        else await say([['N','On the bank, Saskia has gone very still — the way the whole house is still. It is a family resemblance.']]);
+      }
+      hint('the pond is honest now · walk back');
+    });
+  },
+
+  async leave(){
+    if (G.cons.pos!=='bank'){ hint('cross back to the door first'); return; }
+    await busy(async ()=>{
+      if (G.route==='escort' && !G.flags.memento && G.seen.greylock)
+        await say([['S','“Done?” She is through the door before you answer it.']]);
+      go('foyer');
+    });
+  },
+};
+
 /* ---------- helpers ---------- */
 function say(lines){
   const nodes = {};
@@ -1109,14 +1632,24 @@ function openNotebook(){
   $('#notebookBtn').classList.remove('pulse');
   const lost = Math.round(100 - G.warmth);
   const frostH = lost <= 0 ? 0 : Math.min(84, 16 + 66*lost/100);
-  const legends = ['Mystery at Ruby Hills','Shapes Under the Mist','Saywardbury · the Doeling','Drownsong · the Bell','Omendaria’s Living Thread','Lanterna’s Rest · the Twins','Kassera’s Plunge · Headlesses','The Graincross Herald'];
+  const wStatus = G.flags.memento ? 'quieted (?)' : G.flags.page ? 'traces: C.T.' : G.seen.consIntro ? 'the mist rises' : 'unvisited';
+  const legends = [
+    ['Mystery at Ruby Hills','unvisited'], ['Shapes Under the Mist', wStatus],
+    ['Saywardbury · the Doeling','unvisited'], ['Drownsong · the Bell','unvisited'],
+    ['Omendaria’s Living Thread','unvisited'], ['Lanterna’s Rest · the Twins','unvisited'],
+    ['Kassera’s Plunge · Headlesses','unvisited'], ['The Graincross Herald','unvisited'],
+  ];
+  const carrying = [G.flags.pole && 'the punt pole', G.flags.page && 'Corwen’s page', G.flags.memento && 'the ferryman’s hook']
+    .filter(Boolean).join(' · ') || 'nothing but this notebook';
   const ov = $('#overlay');
   ov.innerHTML = `
     <div class="book" role="dialog" aria-label="Tomren's notebook">
       <div class="page">
         <h3>The Project</h3>
         <p class="sub">eight legends, eight chapters — T. South, E. Bellwether, C. Thrushwick</p>
-        <ul class="legends">${legends.map(l=>`<li><span>${l}</span><span class="st">unvisited</span></li>`).join('')}</ul>
+        <ul class="legends">${legends.map(([l,s])=>`<li><span>${l}</span><span class="st">${s}</span></li>`).join('')}</ul>
+        <p class="sub" style="margin-top:14px">carrying: ${carrying}</p>
+        ${G.flags.corwenSlip ? '<p class="sub redline">she started to say his name. at the pond. nobody asked her to.</p>' : ''}
       </div>
       <div class="page">
         <h3>The Ledger</h3>
@@ -1175,8 +1708,13 @@ function gameOverDoor(){
     </div>
     <div class="heraldBtns"><button class="choice" id="retry">knock again</button></div>`, 'clip');
   $('#retry').addEventListener('click', ()=>{
-    closeOverlay(); G.trust = 50; G.flags = {}; go('doorstep');
+    closeOverlay(); resetGame(); go('doorstep');
   });
+}
+function resetGame(){
+  Object.assign(G, {trust:50, warmth:100, minWarmth:100, route:null, flags:{}, seen:{},
+    coldCount:0, ledgerTripped:false, cons:null});
+  applyWarmth();
 }
 function endCard(){
   const route = G.route === 'alone' ? 'unaccompanied — the keeper trusts him, or has stopped arguing with the house' : 'under escort, keys in hand';
@@ -1187,14 +1725,14 @@ function endCard(){
     <div class="cols">
       <p class="stat">The visitor toured the foyer <b>${route}</b>. Sources describe the keeper’s resting expression as <b>${faceLabel()}</b>.</p>
       <p class="stat">Warmth at close of business: <b>${G.warmth}%</b> (day’s low <b>${G.minWarmth}%</b>). The ledger is <b>${G.ledgerTripped ? 'BELOW THE LINE' : 'clean'}</b>. Curiosities examined: <b>${seen} of 5</b>.</p>
+      ${G.flags.memento ? '<p class="stat">REMOVED FROM EXHIBITION: one ferryman’s hook. The Conservatory has changed its song and declines to change it back.</p>' : ''}
+      ${G.flags.page ? '<p class="stat">RECOVERED: one page, C. Thrushwick’s hand, ferry-log research, final word unfinished.</p>' : ''}
       <p>NEXT EDITION — the eight rooms open one by one: the Valley Parlor and its restless model, the Conservatory fog, the Nursery hoofprints, the silenced Chapel bell, the Tapestry that remembers yesterday, the twin lanterns, the Plunge Bath and its shell mirror, and the Archive where a certain student pins the truth together.</p>
       <p><i>That’s the whole slice, Clarey — come tell the Herald what to build next.</i></p>
     </div>
     <div class="heraldBtns"><button class="choice" id="again">play it again</button></div>`);
   $('#again').addEventListener('click', ()=>{
-    closeOverlay();
-    Object.assign(G, {trust:50, warmth:100, minWarmth:100, route:null, flags:{}, seen:{}, coldCount:0, ledgerTripped:false});
-    applyWarmth(); go('doorstep');
+    closeOverlay(); resetGame(); go('doorstep');
   });
 }
 
