@@ -123,10 +123,14 @@ visible, getting ready.
 - Art: flat-color storybook vector in the reference sheet's palette — night navy
   ground, her dress-red and whistle-gold the only warm colors. Dread first; horror
   only as warmth fails.
-- Music: **Clarey composes.** "Her Shape in Coral 2.2" (B minor, ~90 BPM rubato,
-  2m42s) = Saskia's theme / title. MIDI is converted to note data
+- Music: **Clarey composes, room by room.** "Her Shape in Coral 2.2" (B minor, ~90 BPM
+  rubato, 2m42s) = Saskia's theme / title & doorstep. MIDI is converted to note data
   (`tools/midi2json.py`) and played by the game's own Web Audio synth. "Tender Hill"
   (already in the repo) is a candidate for a diegetic piano-room scene.
+- Sound rule: her theme lives *outside*. Crossing the threshold fades the music into
+  the quiet ticking of a grandfather clock — the house keeps time instead.
+- Timeline: he knocks at ten in the morning (title screen is the house at night; the
+  porch lantern burns regardless of the hour) and should leave by late afternoon.
 
 ## Build log
 - **v0.1 (this slice):** title → doorstep conversation (router, joke game-over) →
