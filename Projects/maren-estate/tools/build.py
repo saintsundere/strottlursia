@@ -6,9 +6,11 @@ import json, os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TRACKS = {
-    'coral': 'music/her_shape_in_coral.json',
-    'mist':  'music/wistful_mist.json',
-    'widow': 'music/wistful_widow.json',
+    'coral':   'music/her_shape_in_coral.json',
+    'mist':    'music/wistful_mist.json',
+    'widow':   'music/wistful_widow.json',
+    'posture': 'music/chapel_posture.json',
+    'legs':    'music/chapel_legs.json',
 }
 
 payload = {}

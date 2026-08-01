@@ -902,6 +902,14 @@ Scenes.foyer = {
         <circle cx="374" cy="364" r="3.4" fill="var(--gold)"/><circle cx="386" cy="364" r="3.4" fill="var(--gold)"/>
         <ellipse cx="380" cy="420" rx="54" ry="5" fill="#7fa393" opacity=".25" class="flicker"/>
       </g>
+      <!-- chapel arch -->
+      <g id="hsChapelDoor">
+        <path d="M448,420 L448,330 C448,300 496,300 496,330 L496,420 Z" fill="#171129"/>
+        <path d="M454,420 L454,333 C454,308 490,308 490,333 L490,420 Z" fill="#2e2a45"/>
+        <g stroke="#171129" stroke-width="2.5"><line x1="472" y1="310" x2="472" y2="420"/><line x1="454" y1="352" x2="490" y2="352"/><line x1="454" y1="388" x2="490" y2="388"/></g>
+        <circle cx="486" cy="372" r="4" fill="#8a8f9c"/>
+        <path d="M462,318 q10,-8 20,0" fill="none" stroke="#8a6f3c" stroke-width="2"/>
+      </g>
       <!-- cellar door -->
       <g id="hsCellar">
         <rect x="560" y="300" width="74" height="120" fill="#171129"/>
@@ -1024,6 +1032,7 @@ Scenes.foyer = {
       {sel:'#hsPortraits',  x:390, name:'the eight portraits', fn:()=>this.portraits()},
       {sel:'#hsBrazier',    x:200, name:'the brazier',       fn:()=>this.brazier()},
       {sel:'#hsGlass',      x:380, name:'the glass door',    fn:()=>this.glass()},
+      {sel:'#hsChapelDoor', x:472, name:'the stone arch',    fn:()=>this.chapelDoor()},
       {sel:'#hsPole',       x:690, name:'the umbrella stand', fn:()=>this.pole()},
       {sel:'#hsCellar',     x:598, name:'the cellar door',   fn:()=>this.cellar()},
       {sel:'#hsEast',       x:800, name:'the east door',     fn:()=>this.east()},
@@ -1169,6 +1178,19 @@ Scenes.foyer = {
         if (G.route==='escort') await say([['S','“The Conservatory.” The keys choose this moment to be very loud. “Stay on the near side of the water.”']]);
       }
       go('conservatory');
+    });
+  },
+  async chapelDoor(){
+    await busy(async ()=>{
+      if (!G.seen.chapelDoorIntro){
+        G.seen.chapelDoorIntro = true;
+        await say([['N','A stone arch, older than the wall it stands in — as if the house was built around it the way flesh heals around a splinter. From behind the door, very faint: water, remembering a tune.']]);
+        if (G.route==='escort'){
+          setFace(G.trust>=59 ? 'stung' : 'wary');
+          await say([['S','She stops before you touch the handle. “The chapel.” A breath. “I don’t go in there anymore. I’ll be—” she looks at the door, not you, “—right here.”']]);
+        }
+      }
+      go('chapel');
     });
   },
   async cellar(){
@@ -1669,6 +1691,396 @@ Scenes.conservatory = {
   },
 };
 
+/* ================================================================
+   CHAPEL — "Drownsong · the Bell"  (the room that gets answered)
+   ================================================================ */
+Scenes.chapel = {
+  raf:null, last:0, mode:'idle', round:0, tolls:0, evalT:null, callT:[],
+  COUNTS:[2,3,4], ROPE:{x:792, y:470},
+
+  enter(){
+    Snd.clockStop();
+    Snd.play(G.flags.memento2 ? 'legs' : 'posture', 2);
+    G.chap = G.chap || {};
+    this.mode = 'idle'; this.round = 0; this.tolls = 0;
+    const cold85 = G.warmth < 85, cold65 = G.warmth < 65, cold50 = G.warmth < 50;
+    const answered = !!G.flags.memento2;
+
+    sceneL.innerHTML = `
+    <svg viewBox="0 0 960 540" width="960" height="540" id="chapSVG">
+      ${SKY}
+      <rect width="960" height="540" fill="#232941"/>
+      <g stroke="#1b2036" stroke-width="4" opacity=".8">
+        <line x1="120" y1="0" x2="120" y2="440"/><line x1="340" y1="0" x2="340" y2="440"/>
+        <line x1="560" y1="0" x2="560" y2="440"/><line x1="700" y1="0" x2="700" y2="440"/>
+      </g>
+      <!-- lancet windows -->
+      ${[[150,'#3e6672'],[380,'#3a4470'],[610,'#6e3348']].map(([wx,glass],wi)=>`
+        <g ${wi===1 ? 'id="hsHale"' : ''}>
+          <path d="M${wx},250 L${wx},110 C${wx},70 ${wx+80},70 ${wx+80},110 L${wx+80},250 Z" fill="#141830"/>
+          <path d="M${wx+6},244 L${wx+6},112 C${wx+6},80 ${wx+74},80 ${wx+74},112 L${wx+74},244 Z" fill="${glass}" opacity=".8"/>
+          <g stroke="#141830" stroke-width="2.5">
+            <line x1="${wx+40}" y1="82" x2="${wx+40}" y2="244"/>
+            <line x1="${wx+6}" y1="140" x2="${wx+74}" y2="140"/>
+            <line x1="${wx+6}" y1="190" x2="${wx+74}" y2="190"/>
+          </g>
+          ${wi===1 ? `<g fill="#c8d4dc" opacity=".85">
+            <circle cx="${wx+40}" cy="118" r="9"/>
+            <path d="M${wx+40},127 C${wx+28},140 ${wx+30},168 ${wx+36},186 L${wx+34},214 L${wx+39},214 L${wx+41},192 L${wx+45},214 L${wx+50},214 L${wx+46},184 C${wx+52},166 ${wx+52},140 ${wx+40},127 Z"/>
+            <path d="M${wx+44},150 C${wx+58},158 ${wx+64},176 ${wx+58},196 C${wx+54},184 ${wx+48},170 ${wx+42},164 Z" opacity=".9"/>
+          </g>` : ''}
+        </g>`).join('')}
+      <!-- floor first: everything interactive sits on top of it -->
+      <rect x="0" y="452" width="960" height="88" fill="#1e2440"/>
+      <g stroke="#161b32" stroke-width="2" opacity=".9">
+        <line x1="0" y1="480" x2="960" y2="480"/><line x1="0" y1="508" x2="960" y2="508"/>
+        <line x1="240" y1="452" x2="220" y2="540"/><line x1="700" y1="452" x2="716" y2="540"/>
+      </g>
+      <rect id="chapFloor" class="walk" x="0" y="452" width="960" height="88" fill="transparent"/>
+      <!-- dais & altar -->
+      <rect x="640" y="428" width="320" height="24" fill="#2a3050"/>
+      <rect x="640" y="420" width="320" height="10" fill="#333a5e"/>
+      <g id="hsDrownsong">
+        <rect x="700" y="336" width="180" height="16" fill="#2c2135"/>
+        <rect x="708" y="352" width="164" height="70" fill="#241b2c"/>
+        <g id="dsStrings" ${cold65 && !answered ? 'class="breathe"' : ''}>
+          <path d="M742,330 C718,326 712,306 726,296 C736,290 744,298 738,306 C734,310 728,308 730,302" fill="none" stroke="#8a6f3c" stroke-width="3"/>
+          <path d="M806,330 C830,326 836,306 822,296 C812,290 804,298 810,306 C814,310 820,308 818,302" fill="none" stroke="#8a6f3c" stroke-width="3"/>
+          <g stroke="#c8b78a" stroke-width="1.2" opacity=".9">
+            <line x1="738" y1="300" x2="810" y2="300"/><line x1="734" y1="308" x2="814" y2="308"/>
+            <line x1="732" y1="316" x2="816" y2="316"/><line x1="736" y1="324" x2="812" y2="324"/>
+          </g>
+        </g>
+        <g fill="#e8b46b"><ellipse class="flicker" cx="716" cy="322" rx="2.6" ry="5"/><ellipse class="flicker f2" cx="864" cy="322" rx="2.6" ry="5"/></g>
+        <rect x="712" y="326" width="8" height="10" fill="#c9a35a"/><rect x="860" y="326" width="8" height="10" fill="#c9a35a"/>
+      </g>
+      <!-- bell & rope: the room's primary verb, drawn last among the dais furniture -->
+      <g id="hsBell">
+        <rect x="690" y="78" width="200" height="14" fill="#171129"/>
+        <g id="bellSwing">
+          <line x1="790" y1="92" x2="790" y2="112" stroke="#171129" stroke-width="5"/>
+          <path d="M762,168 C762,120 818,120 818,168 L822,182 L758,182 Z" fill="#a08048"/>
+          <path d="M762,168 C762,120 818,120 818,168" fill="none" stroke="#8a6f3c" stroke-width="3"/>
+          <ellipse cx="790" cy="182" rx="32" ry="6" fill="#141830"/>
+          ${G.flags.clapperInstalled ? '<line x1="790" y1="150" x2="790" y2="184" stroke="#5c4a28" stroke-width="4"/><circle cx="790" cy="188" r="6" fill="#6d5a3a"/>' : ''}
+        </g>
+        <path id="ropePath" d="M812,176 C820,260 806,360 810,452" fill="none" stroke="#8a7350" stroke-width="4"/>
+        <path d="M804,452 L816,452 L814,478 L806,478 Z" fill="#8a7350"/>
+        <rect x="770" y="150" width="70" height="330" fill="transparent"/>
+      </g>
+      <!-- pews -->
+      <g id="hsPews">
+        <g fill="#2c2135">
+          <rect x="170" y="436" width="130" height="10"/><rect x="176" y="414" width="118" height="8"/>
+          <rect x="178" y="446" width="10" height="18"/><rect x="282" y="446" width="10" height="18"/>
+          <rect x="330" y="436" width="130" height="10"/><rect x="336" y="414" width="118" height="8"/>
+          <rect x="338" y="446" width="10" height="18"/><rect x="442" y="446" width="10" height="18"/>
+        </g>
+        ${cold85 && !answered ? `<g fill="#10152a" opacity=".3">
+          <ellipse cx="205" cy="408" rx="13" ry="16"/><ellipse cx="252" cy="408" rx="13" ry="16"/>
+          <ellipse cx="365" cy="408" rx="13" ry="16"/>
+        </g>` : ''}
+        ${cold50 && !answered ? '<g opacity=".55"><ellipse cx="430" cy="404" rx="14" ry="18" fill="#0c1122"/><rect x="418" y="414" width="26" height="26" fill="#0c1122"/></g>' : ''}
+      </g>
+      <!-- cistern grate -->
+      <g id="hsGrate">
+        <ellipse cx="520" cy="486" rx="66" ry="21" fill="#141830"/>
+        <ellipse cx="520" cy="484" rx="58" ry="17" fill="#0e1b26"/>
+        <g id="ripples" opacity="${answered ? 0 : 0.5}">
+          <ellipse cx="520" cy="484" rx="20" ry="6" fill="none" stroke="#5f8fa8" stroke-width="1.4" class="flicker"/>
+          <ellipse cx="520" cy="484" rx="36" ry="11" fill="none" stroke="#5f8fa8" stroke-width="1.2" class="flicker f2"/>
+          <ellipse cx="520" cy="484" rx="50" ry="15" fill="none" stroke="#5f8fa8" stroke-width="1" class="flicker f3"/>
+        </g>
+        <g stroke="#39456f" stroke-width="3.6">
+          <line x1="466" y1="482" x2="574" y2="482"/><line x1="472" y1="490" x2="568" y2="490"/>
+          <line x1="500" y1="469" x2="496" y2="500"/><line x1="524" y1="468" x2="524" y2="501"/><line x1="548" y1="470" x2="550" y2="498"/>
+        </g>
+        ${G.flags.clapper ? '' : '<circle id="glint" cx="530" cy="489" r="3" fill="#e3c98c" class="flicker"/>'}
+        ${answered
+          ? '<g transform="rotate(-18 560 468)"><rect x="554" y="466" width="14" height="2.4" rx="1.2" fill="#cfd8dc"/><circle cx="556" cy="467" r="2" fill="#9aa4ad"/></g>'
+          : (G.flags.elahPin ? '' : '<g transform="rotate(-24 576 500)"><rect x="570" y="498" width="13" height="2.2" rx="1.1" fill="#cfd8dc"/><circle cx="572" cy="499" r="1.8" fill="#9aa4ad"/></g>')}
+      </g>
+      <!-- exit door -->
+      <g id="hsChapExit">
+        <rect x="28" y="330" width="66" height="132" fill="#171129"/>
+        <rect x="33" y="336" width="56" height="126" fill="var(--wood)"/>
+        <circle cx="80" cy="402" r="4.5" fill="var(--gold)"/>
+        ${G.route==='escort' ? '<rect x="89" y="344" width="5" height="112" fill="#e8b46b" opacity=".22" class="flicker"/>' : ''}
+      </g>
+    </svg>`;
+
+    spritesL.innerHTML = tomrenSVG();
+    Tom.x = Tom.tx = 130; Tom.y = Tom.ty = 495; Tom.busy = false; Tom.pending = null;
+    applyWarmth();
+    $('#hud').classList.add('on');
+    this.bind();
+    this.loop(performance.now());
+    this.intro();
+  },
+  exit(){
+    cancelAnimationFrame(this.raf);
+    clearTimeout(this.evalT);
+    this.callT.forEach(clearTimeout); this.callT = [];
+    $('#hud').classList.remove('on');
+  },
+
+  async intro(){
+    if (G.seen.chapelIntro) return;
+    G.seen.chapelIntro = true;
+    await busy(async ()=>{
+      await say([['N','The chapel is one room deep and one grief wide. Three windows, a mute bell, and under the floor — water, holding a tune the way a sleeping person holds a name.'],
+                 ['N','The tune leaves spaces in itself. The spaces are the shape of an answer.']]);
+      hint('the water calls · something should answer');
+    });
+  },
+
+  bind(){
+    const svg = sceneL.querySelector('#chapSVG');
+    const pt = e => {
+      const r = svg.getBoundingClientRect();
+      return { x:(e.clientX-r.left)*960/r.width, y:(e.clientY-r.top)*540/r.height };
+    };
+    svg.querySelector('#chapFloor').addEventListener('click', e=>{
+      if (Tom.busy || D.el.classList.contains('on')) return;
+      const p = pt(e);
+      Tom.tx = Math.max(112, Math.min(910, p.x));
+      Tom.ty = Math.max(478, Math.min(516, p.y));
+      Tom.pending = null;
+    });
+    const hots = [
+      ['#hsChapExit',  70,  'back to the foyer', ()=>this.leave()],
+      ['#hsHale',      420, 'the middle window', ()=>this.hale()],
+      ['#hsPews',      310, 'the pews',          ()=>this.pews()],
+      ['#hsGrate',     520, 'the cistern grate', ()=>this.grate()],
+      ['#hsDrownsong', 780, 'the instrument',    ()=>this.drownsong()],
+      ['#hsBell',      810, 'the bell',          ()=>this.bell()],
+    ];
+    this.hotspots = [];
+    for (const [sel, x, name, fn] of hots){
+      const el = svg.querySelector(sel);
+      if (!el) continue;
+      const h = {sel, x, fn};
+      this.hotspots.push(h);
+      el.classList.add('hot');
+      el.addEventListener('mouseenter', ()=>hint(name));
+      el.addEventListener('mouseleave', ()=>hint(''));
+      el.addEventListener('click', e=>{
+        e.stopPropagation();
+        if (Tom.busy || D.el.classList.contains('on')) return;
+        if (this.mode==='answer' && sel==='#hsBell'){ fn(); return; }   // never walk mid-answer
+        if (Math.abs(Tom.x - x) < 90) fn();
+        else { Tom.tx = x + (Tom.x < x ? -60 : 60); Tom.ty = 495; Tom.pending = h; }
+      });
+    }
+  },
+
+  loop(now){
+    const dt = Math.min(0.05, (now-(this.last||now))/1000); this.last = now;
+    const tom = $('#tom');
+    const dx = Tom.tx-Tom.x, dy = Tom.ty-Tom.y, dist = Math.hypot(dx,dy);
+    if (dist>3 && !Tom.busy){
+      Tom.walking = true;
+      Tom.dir = dx<-1 ? -1 : dx>1 ? 1 : Tom.dir;
+      Tom.x += dx/dist*Tom.speed*dt; Tom.y += dy/dist*Tom.speed*dt*.7;
+      Tom.ft += dt; if (Tom.ft>0.15){ Tom.ft=0; Tom.frame=1-Tom.frame; }
+    } else {
+      if (Tom.walking && Tom.pending){ const h = Tom.pending; Tom.pending = null; h.fn(); }
+      Tom.walking=false; Tom.frame=0;
+    }
+    if (tom){
+      const sc = 0.86 + (Tom.y-440)*0.004;
+      tom.style.left = (Tom.x-33)+'px';
+      tom.style.top  = (Tom.y-102)+'px';
+      tom.querySelector('#tomFlip').setAttribute('transform', `scale(${Tom.dir*sc} ${sc})`);
+      tom.querySelector('#legA').style.display = Tom.frame ? 'none':'';
+      tom.querySelector('#legB').style.display = Tom.frame ? '':'none';
+    }
+    this.raf = requestAnimationFrame(t=>this.loop(t));
+  },
+
+  /* ----- sounds ----- */
+  callTone(when){ if (Snd.ctx) Snd.voice(when, 65, 0.5, 0.5); },
+  tollSound(){ if (!Snd.ctx) return; const t = Snd.ctx.currentTime + 0.02; Snd.voice(t, 46, 1.6, 0.7); Snd.voice(t, 58, 1.2, 0.45); Snd.voice(t+0.01, 65, 0.9, 0.3); },
+
+  /* ----- hotspot scripts ----- */
+  async hale(){
+    await busy(async ()=>{
+      await say([['N','The middle window predates the chapel — the leading is older, the glass wavier. A pale figure, dancing, with legs <span class="em">and</span> a tail. Whoever made her gave her a face so kind it survives being made of fragments.']]);
+      if (!G.flags.haleGlass){
+        G.flags.haleGlass = true;
+        await say([['T','“The building wasn’t built to hold services.” You write it slowly. “It was built around <span class="em">her.</span>”']]);
+      }
+    });
+  },
+  async pews(){
+    await busy(async ()=>{
+      await say([['N','Four pews, dusted. Not clean — <span class="em">dusted.</span> Somebody maintains the seating in a chapel nobody enters.']]);
+      if (G.warmth < 85 && !G.flags.memento2)
+        await say([['N','The shadows on the benches sit at shoulder intervals. When you look straight at them they are just shadows. They are very good at being just shadows.']]);
+      if (G.warmth < 50 && !G.flags.memento2)
+        await say([['N','In the last pew, nearest you, someone is seated. Politely facing the front. You are almost entirely sure the pew was empty when you came in.']]);
+    });
+  },
+  async grate(){
+    await busy(async ()=>{
+      const st = G.chap;
+      if (G.flags.memento2){
+        await say([['N','The water under the grate is still. On the iron, where the waterline used to reach: Elah’s hairpin — set <span class="em">on top</span> now, dry, placed the way you place a thing you are returning.']]);
+        return;
+      }
+      if (!st.grateSeen){
+        st.grateSeen = true;
+        await say([['N','A cistern under an iron grate. The tune lives here — rising, circling, leaving its spaces. And at the waterline, caught on the iron: a silver hairpin, bent.'],
+                   ['N','Elah’s. Corwen won it for her at the Graincross fair, third try, and you all pretended the game wasn’t rigged. She never took it out of her hair after that.']]);
+        G.flags.elahPin = true;
+        const pin = sceneL.querySelector('#hsGrate g[transform*="-24"]'); if (pin) pin.remove();
+        await say([['N','And deeper, under the bars, past your arm and your courage: a glint of bronze. Heavy. Bell-shaped, in the way a missing piece is shaped like its absence.']]);
+        hint('the notebook felt that · check ✎');
+        return;
+      }
+      if (!st.pullDone){
+        st.pullDone = true;
+        const saved = G.route==='escort' && G.trust>=49;
+        await say([['N','You lean over the grate to look again, and the tune — turns. Toward you. It has found the shape of your name and begun, patiently, to try it on—']]);
+        if (saved){
+          stealWarmth(2);
+          await say([['N','Two knocks. Hard. From the other side of the chapel door — twice, like she taught you without ever teaching you. The tune lets go of your name, annoyed.'],
+                     ['N','Two degrees, kept ninety-eight. The door does not open. She is still there.']]);
+        } else {
+          const tripped = stealWarmth(6);
+          await say([['N','—and it fits better than it should. You surface from the sound like surfacing from deep water, six degrees lighter, with the distinct sensation of having been <span class="em">sung about.</span>']]);
+          if (tripped) await Scenes.conservatory.ledgerLines();
+        }
+        return;
+      }
+      if (!G.flags.clapper) await this.glint();
+      else await say([['N','The tune circles. The spaces in it wait. The bell above the dais has an opinion about whose job that is.']]);
+    });
+  },
+  async glint(){
+    if (!G.flags.pole){
+      await say([['N','You size up the grate, the water, your arm. The water is exactly as deep as your shoulder is long. The math is not in your favor, and the math is the <span class="em">nice</span> one here.']]);
+      return;
+    }
+    if (!G.flags.memento){
+      await say([['N','The pole goes through the bars and finds the bronze — and slides off. Wood alone can’t hold it. You need a hook’s patience for this.'],
+                 ['T','“…The exhibit stand. In the Conservatory.” You underline it twice.']]);
+      return;
+    }
+    await say([['N','Pole and hook. You thread the ferryman’s tool together for the first time in — how long? It locks with a click like a word finishing.'],
+               ['N','Down through the bars, a turn of the wrist the tool seems to remember on its own — and up comes the clapper of the Delford bell, streaming, heavier than its size, like a fare that has waited a long time on the wrong bank.']]);
+    G.flags.clapper = true;
+    const g = sceneL.querySelector('#glint'); if (g) g.remove();
+    hint('the bell is missing exactly this');
+  },
+  async drownsong(){
+    await busy(async ()=>{
+      await say([['N','On the altar: the Drownsong. Two spirals wound opposite ways, strung between — a plucked record of old. A brass plate, hand-engraved, matching one you’ve seen across the house: <span class="em">THE DROWNSONG — DO NOT PLUCK.</span>']]);
+      if (G.warmth < 65 && !G.flags.memento2)
+        await say([['N','The strings are moving. Nothing is plucking them. The tune under the floor matches their trembling — a half-beat behind, like a singer reading her own handwriting.']]);
+      if (G.flags.memento2)
+        await say([['N','The strings are slack now, at rest. Whatever the spirals were winding toward, it arrived.']]);
+    });
+  },
+
+  /* ----- the bell & the answer ----- */
+  async bell(){
+    if (this.mode==='answer'){ this.toll(); return; }
+    if (this.mode==='call'){ hint('wait — let the water finish'); return; }
+    await busy(async ()=>{
+      if (G.flags.memento2){
+        await say([['N','The bell is warm. Bells are not warm. This one is.']]);
+        return;
+      }
+      if (!G.flags.clapperInstalled){
+        if (!G.flags.clapper){
+          await say([['N','You pull the rope. The bell swings, grand and earnest and <span class="em">silent</span> — a mouth with no tongue. The quiet afterward is somehow ruder than noise.']]);
+          sceneL.querySelector('#bellSwing').classList.add('toll');
+          setTimeout(()=>{ const b = sceneL.querySelector('#bellSwing'); if (b) b.classList.remove('toll'); }, 600);
+          return;
+        }
+        await say([['N','You climb the dais rail, reach into the bell’s dark, and hang the clapper on its worn hook. It settles like a tongue remembering the roof of its mouth.']]);
+        G.flags.clapperInstalled = true;
+        sceneL.querySelector('#bellSwing').innerHTML += '<line x1="790" y1="150" x2="790" y2="184" stroke="#5c4a28" stroke-width="4"/><circle cx="790" cy="188" r="6" fill="#6d5a3a"/>';
+        await say([['N','Below, the tune under the floor pauses. The whole cistern, mid-phrase — listening.'],
+                   ['N','It begins again. Slowly. Deliberately. It is going to call. When it leaves the space — <span class="em">answer with the same count.</span>']]);
+        this.startRound();
+        return;
+      }
+      this.startRound();
+    });
+  },
+  startRound(){
+    this.mode = 'call'; this.tolls = 0;
+    const k = this.COUNTS[this.round];
+    hint('listen…');
+    this.callT.forEach(clearTimeout); this.callT = [];
+    const rip = sceneL.querySelector('#ripples');
+    for (let i=0;i<k;i++){
+      this.callT.push(setTimeout(()=>{
+        if (Snd.ctx) this.callTone(Snd.ctx.currentTime + 0.02);
+        if (rip){ rip.style.opacity = 1; setTimeout(()=>{ if (rip) rip.style.opacity = .5; }, 260); }
+      }, 500 + i*620));
+    }
+    this.callT.push(setTimeout(()=>{
+      this.mode = 'answer';
+      hint(`answer — pull the rope (${k} calls)`);
+    }, 500 + k*620 + 300));
+  },
+  toll(){
+    this.tolls++;
+    this.tollSound();
+    const b = sceneL.querySelector('#bellSwing');
+    if (b){ b.classList.remove('toll'); void b.getBoundingClientRect(); b.classList.add('toll'); }
+    clearTimeout(this.evalT);
+    this.evalT = setTimeout(()=>this.judge(), 1500);
+  },
+  async judge(){
+    const k = this.COUNTS[this.round];
+    this.mode = 'idle';
+    if (this.tolls === k){
+      this.round++;
+      if (this.round >= this.COUNTS.length){ this.answered(); return; }
+      hint('…the water accepts. It calls again, longer');
+      setTimeout(()=>{ if (!D.el.classList.contains('on')) this.startRound(); }, 900);
+    } else {
+      await busy(async ()=>{
+        stealWarmth(2);
+        await say([['N','The count lands wrong. The water sighs — a long, disappointed exhale that takes two degrees with it — and gathers itself to ask again.']]);
+      });
+      this.tolls = 0;
+      this.startRound();
+    }
+  },
+  async answered(){
+    this.mode = 'done';
+    G.flags.memento2 = true;
+    Snd.play('legs', 2.5);
+    await busy(async ()=>{
+      await say([['N','The third answer lands — and the bell, unpulled, rings once more on its own. Deep. Clean. A note held out like a hand.'],
+                 ['N','Under the floor, the tune rises to meet it — and for one measure the call and the answer are the same song, passing something between them—'],
+                 ['N','—and the water goes still. Not empty-still. <span class="em">Finished</span>-still. Somewhere in the pipes of the house, something that has been holding its breath for a very long time lets it out in rhythm.']]);
+      const rip = sceneL.querySelector('#ripples'); if (rip) rip.style.opacity = 0;
+      const sh = sceneL.querySelectorAll('#hsPews g'); sh.forEach((el,i)=>{ if (i>0) el.remove(); });
+      await say([['N','On the grate — you did not see it happen; you were not meant to — Elah’s hairpin now sits on top of the iron. Dry. Placed. The way you set a thing down when you are returning it.']]);
+      if (G.route==='escort'){
+        if (G.trust >= 59){
+          spritesL.innerHTML += saskiaSVG(150, 388);
+          setFace('longlook');
+          await say([['N','Saskia is standing three steps inside the chapel. She did not decide to; her feet clearly outvoted her.'],
+                     ['S','“It hasn’t sounded like that since—” She keeps the rest. She stays anyway. That’s the sentence.']]);
+        } else {
+          await say([['N','Through the gap in the door, a strip of foyer light — and her shadow across it, not moving, for a long time. The shadow of someone listening to jazz through a wall and calling it keeping watch.']]);
+        }
+      }
+      hint('the chapel is answered');
+    });
+  },
+  async leave(){
+    await busy(async ()=>{ go('foyer'); });
+  },
+};
+
 /* ---------- helpers ---------- */
 function say(lines){
   const nodes = {};
@@ -1696,13 +2108,16 @@ function openNotebook(){
   const lost = Math.round(100 - G.warmth);
   const frostH = lost <= 0 ? 0 : Math.min(84, 16 + 66*lost/100);
   const wStatus = G.flags.memento ? 'quieted (?)' : G.flags.page ? 'traces: C.T.' : G.seen.consIntro ? 'the mist rises' : 'unvisited';
+  const dStatus = G.flags.memento2 ? 'ANSWERED' : G.flags.elahPin ? 'traces: E.B.' : G.seen.chapelIntro ? 'the call waits' : 'unvisited';
   const legends = [
     ['Mystery at Ruby Hills','unvisited'], ['Shapes Under the Mist', wStatus],
-    ['Saywardbury · the Doeling','unvisited'], ['Drownsong · the Bell','unvisited'],
+    ['Saywardbury · the Doeling','unvisited'], ['Drownsong · the Bell', dStatus],
     ['Omendaria’s Living Thread','unvisited'], ['Lanterna’s Rest · the Twins','unvisited'],
     ['Kassera’s Plunge · Headlesses','unvisited'], ['The Graincross Herald','unvisited'],
   ];
-  const carrying = [G.flags.pole && 'the punt pole', G.flags.page && 'Corwen’s page', G.flags.memento && 'the ferryman’s hook']
+  const carrying = [G.flags.pole && 'the punt pole', G.flags.page && 'Corwen’s page',
+    G.flags.memento && (G.flags.pole ? 'the ferryman’s hook (mounted)' : 'the ferryman’s hook'),
+    G.flags.clapper && !G.flags.clapperInstalled && 'the Delford clapper']
     .filter(Boolean).join(' · ') || 'nothing but this notebook';
   const ov = $('#overlay');
   ov.innerHTML = `
@@ -1802,6 +2217,7 @@ function returnToTitle(){
 function restartArea(){
   closeOverlay(); unstick();
   if (G.scene === 'conservatory') G.cons = null;
+  if (G.scene === 'chapel') G.chap = null;
   go(G.scene);
 }
 function endCard(){
@@ -1815,6 +2231,7 @@ function endCard(){
       <p class="stat">Warmth at close of business: <b>${G.warmth}%</b> (day’s low <b>${G.minWarmth}%</b>). The ledger is <b>${G.ledgerTripped ? 'BELOW THE LINE' : 'clean'}</b>. Curiosities examined: <b>${seen} of 5</b>.</p>
       ${G.flags.memento ? '<p class="stat">REMOVED FROM EXHIBITION: one ferryman’s hook. The Conservatory has changed its song and declines to change it back.</p>' : ''}
       ${G.flags.page ? '<p class="stat">RECOVERED: one page, C. Thrushwick’s hand, ferry-log research, final word unfinished.</p>' : ''}
+      ${G.flags.memento2 ? '<p class="stat">ANSWERED: the Delford bell, restored to conversation after a long professional silence. The chapel has since been heard, credibly, <b>swinging</b>.</p>' : ''}
       <p>NEXT EDITION — the eight rooms open one by one: the Valley Parlor and its restless model, the Conservatory fog, the Nursery hoofprints, the silenced Chapel bell, the Tapestry that remembers yesterday, the twin lanterns, the Plunge Bath and its shell mirror, and the Archive where a certain student pins the truth together.</p>
       <p><i>That’s the whole slice, Clarey — come tell the Herald what to build next.</i></p>
     </div>

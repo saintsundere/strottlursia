@@ -138,9 +138,24 @@ visible, getting ready.
 | Her Shape in Coral 2.2 | title & doorstep | B minor, ~90 BPM rubato, 2m42s. Saskia's theme |
 | Wistful Mist of Widowmere 7.0 | Conservatory (haunted) | F minor, 73–96 BPM, 4m00s |
 | Wistful Widow of Mere (8.0 arpeggio) | Conservatory after the hook is taken | F minor arpeggio twin, 2m15s — the room's "different quiet" |
+| Chapel Maiden's Posture ("Moment of Weakness D") | Chapel (unanswered) | 4m01s, 63–121 BPM lurching rubato; both thirds at once — ambivalently malevolent by construction |
+| Chapel Maiden's Legs (the jazz) | Chapel after the Answer | 2m48s, steady 82–88 BPM pocket, C-minor-7th world. Hale dancing — with her brother's da-doots answering Clarey's ba-dadas |
 | — grandfather clock | foyer & halls | synthesized tick/tock; the house keeping time |
 
 ## Build log
+- **v0.3 — the Chapel ("Drownsong · the Bell"), the answered room:** stone arch off
+  the foyer (Saskia will not enter — "I don't go in there anymore"); the Hale
+  window (legs *and* a tail — the chapel was built around her); the cistern call
+  with Elah's hairpin at the waterline; the pull that tries on your name (escort
+  trust ≥49: two knocks through the door save you, once); the clapper fished from
+  the cistern with **pole + hook reassembled** (the Conservatory memento becomes a
+  tool — mementos are keys); the Drownsong on the altar (DO NOT PLUCK; strings
+  move below 65 warmth; congregation shadows below 85; someone in the last pew
+  below 50); and the **Answer**: three call-and-response rounds on the bell rope —
+  win by matching the count, miss and the water sighs (−2). Answered: the bell
+  rings itself, the hairpin comes back *placed*, Maiden's Legs takes the room
+  permanently, and at trust ≥59 Saskia walks back into the chapel for the first
+  time in months. Sets memento² (rooms cleared: 2 of the brazier's 4).
 - **v0.1:** title → doorstep conversation (router, joke game-over) →
   foyer (walk, five hotspots, eight portraits + empty ninth hook, cold-spot warmth
   demo, notebook UI with frosted glasses) → Herald end-card. Saskia's living
