@@ -145,6 +145,12 @@ visible, getting ready.
   foyer (walk, five hotspots, eight portraits + empty ninth hook, cold-spot warmth
   demo, notebook UI with frosted glasses) → Herald end-card. Saskia's living
   resting-face portrait throughout. Morning arrival; threshold fades music to clock.
+- **v0.2.1:** Clarey's playtest caught a freeze on the poleless slip (alone route) —
+  fixed, and the poleless path is now in the regression suite. Notebook grew two
+  escape hatches: *restart this area* and *return to title*. The foyer grew **the
+  brazier** by the front door: +10 warmth per use, never mends the ledger, and it
+  goes permanently cold once four rooms have been cleared — the house reallocates
+  the mercy.
 - **v0.2 — the Conservatory ("Shapes Under the Mist"):** glass house + reflecting
   pond; rising mist as the room's clock (sips warmth; the pole slows it); stone
   crossing with decoys — probe with the pole, or read the Greywist dimples visible

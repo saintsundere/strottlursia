@@ -96,6 +96,10 @@
   .redline{color:var(--red);}
   #ovClose{position:absolute;top:10px;right:14px;background:none;border:0;color:var(--parch);
     font-size:22px;cursor:pointer;line-height:1;}
+  .navRow{position:absolute;right:26px;bottom:24px;display:flex;gap:10px;}
+  .navBtn{background:none;border:1px solid rgba(168,35,46,.45);color:var(--red);cursor:pointer;
+    font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;padding:5px 10px;}
+  .navBtn:hover{background:rgba(168,35,46,.1);border-color:var(--red);}
 
   .herald{width:640px;max-height:480px;overflow:hidden;background:linear-gradient(175deg,#f2e8d2,#e6d8ba);
     color:var(--ink);padding:26px 34px 30px;box-shadow:0 18px 50px rgba(0,0,0,.7);}
@@ -442,6 +446,13 @@ const D = {
     this.el.classList.remove('on'); portrait(false);
     const r = this.resolve; this.resolve = null; if (r) r(v);
   },
+  abort(){                                  // hard reset — the notebook's escape hatches use this
+    clearTimeout(this.typing); this.skip = null;
+    this.el.classList.remove('on');
+    this.ch.classList.remove('on'); this.ch.innerHTML = '';
+    portrait(false);
+    const r = this.resolve; this.resolve = null; if (r) r('aborted');
+  },
   go(id){
     const n = this.nodes[id];
     if (!n) return this.end(id);
@@ -540,6 +551,7 @@ function stars(n, w=960, h=250){
 /* ---------- TITLE ---------- */
 Scenes.title = {
   enter(){
+    Snd.clockStop(); Snd.play('coral', 1.2);   // no-ops before the first knock creates audio
     sceneL.innerHTML = `
     <svg viewBox="0 0 960 540" width="960" height="540">
       ${SKY}
@@ -916,6 +928,24 @@ Scenes.foyer = {
         <rect x="26" y="336" width="68" height="124" fill="var(--wood)"/>
         <circle cx="84" cy="400" r="5" fill="var(--gold)"/>
       </g>
+      <!-- the brazier: a mercy with a deadline -->
+      <g id="hsBrazier">
+        <rect x="138" y="382" width="76" height="74" fill="transparent"/>
+        ${roomsCleared() >= 4 ? `
+        <path d="M148,452 L162,414 L166,414 L154,452 Z" fill="#20242e"/>
+        <path d="M196,452 L182,414 L178,414 L190,452 Z" fill="#20242e"/>
+        <path d="M158,418 C158,404 186,404 186,418 C186,428 158,428 158,418 Z" fill="#262b36"/>
+        <g fill="#3a3f4a"><circle cx="166" cy="412" r="4"/><circle cx="175" cy="410" r="4.5"/><circle cx="182" cy="413" r="3.6"/></g>
+        ` : `
+        <path d="M148,452 L162,414 L166,414 L154,452 Z" fill="#171129"/>
+        <path d="M196,452 L182,414 L178,414 L190,452 Z" fill="#171129"/>
+        <path d="M158,418 C158,404 186,404 186,418 C186,428 158,428 158,418 Z" fill="#241d18"/>
+        <g fill="#b0502e"><circle cx="166" cy="412" r="4"/><circle cx="175" cy="410" r="4.5"/><circle cx="182" cy="413" r="3.6"/></g>
+        <g fill="#e8b46b"><circle cx="170" cy="410" r="2" class="flicker"/><circle cx="179" cy="411" r="1.7" class="flicker f2"/></g>
+        <path d="M172,404 C169,398 173,394 172,388 C176,393 178,399 175,404 Z" fill="#ffdf9e" class="flicker f3"/>
+        <ellipse cx="172" cy="410" rx="46" ry="30" fill="url(#candle)" opacity=".4" class="flicker"/>
+        `}
+      </g>
       <!-- floor -->
       <rect x="0" y="420" width="960" height="120" fill="#141a34"/>
       <g stroke="#0e1327" stroke-width="2" opacity=".9">
@@ -980,6 +1010,11 @@ Scenes.foyer = {
         if (Math.abs(Tom.x - h.x) < 80) return h.fn();
         Tom.tx = h.x + 60; Tom.ty = 470; Tom.pending = h; return;
       }
+      if (p.x >= 138 && p.x <= 214 && p.y < 458){   // the brazier's feet, likewise
+        const h = this.hotspots.find(h=>h.sel==='#hsBrazier');
+        if (Math.abs(Tom.x - h.x) < 80) return h.fn();
+        Tom.tx = h.x + 55; Tom.ty = 472; Tom.pending = h; return;
+      }
       Tom.tx = Math.max(60, Math.min(920, p.x));
       Tom.ty = Math.max(440, Math.min(516, p.y));
       Tom.pending = null;
@@ -987,6 +1022,7 @@ Scenes.foyer = {
     this.hotspots = [
       {sel:'#hsChandelier', x:600, name:'the chandelier',    fn:()=>this.chandelier()},
       {sel:'#hsPortraits',  x:390, name:'the eight portraits', fn:()=>this.portraits()},
+      {sel:'#hsBrazier',    x:200, name:'the brazier',       fn:()=>this.brazier()},
       {sel:'#hsGlass',      x:380, name:'the glass door',    fn:()=>this.glass()},
       {sel:'#hsPole',       x:690, name:'the umbrella stand', fn:()=>this.pole()},
       {sel:'#hsCellar',     x:598, name:'the cellar door',   fn:()=>this.cellar()},
@@ -1097,6 +1133,34 @@ Scenes.foyer = {
       await D.run(nodes, 'q');
     });
   },
+  async brazier(){
+    await busy(async ()=>{
+      if (roomsCleared() >= 4){
+        await say([['N','The brazier is cold. The coals have gone the color of the rest of the house. Whatever kept it lit has been asked to keep four other things instead.']]);
+        return;
+      }
+      if (!G.seen.brazier){
+        G.seen.brazier = true;
+        await say([['N','A low iron brazier keeps the morning’s coals alive beside the door — set where a visitor’s coat would hang, if visitors happened. The heat finds your hands before you ask it to.']]);
+        if (G.route==='escort'){
+          if (G.trust >= 59) await say([['S','“Stay by it as long as you like.” She stands a fraction closer to it than she would admit to.']]);
+          else if (G.trust <= 48) await say([['S','“It won’t always be lit.”']]);
+        }
+      }
+      if (G.warmth >= 100){
+        await say([['N','You are already as warm as this house allows anyone to be.']]);
+        return;
+      }
+      G.warmth = Math.min(100, G.warmth + 10);
+      applyWarmth();
+      await say([['N','Four degrees, then six. The shiver files itself away under yesterday. <span class="em">Warmth restored.</span>']]);
+      if (G.ledgerTripped && !G.seen.brazierLedger){
+        G.seen.brazierLedger = true;
+        await say([['N','Warm hands, warm face. The ledger does not warm. What closed, stays closed.']]);
+      }
+      hint(`warmth ${G.warmth}%`);
+    });
+  },
   async glass(){
     await busy(async ()=>{
       if (!G.seen.glassIntro){
@@ -1193,6 +1257,7 @@ Scenes.conservatory = {
     st.pos = 'bank'; st.stone = -1;
     this.mist = G.flags.memento ? 12 : 0;
     this.drainAcc = 0;
+    this.hopping = false;
     const cold85 = G.warmth < 85, cold65 = G.warmth < 65, cold50 = G.warmth < 50;
 
     sceneL.innerHTML = `
@@ -1430,9 +1495,7 @@ Scenes.conservatory = {
 
   async slip(i){
     const st = G.cons, s = this.stones[i];
-    this.hopping = true;
-    await this.animateHop(s, 200);
-    this.hopping = false;
+    await this.hopTo(s, null);
     const saved = G.route==='escort' && G.trust>=49 && !st.whistleUsed;
     await busy(async ()=>{
       if (saved){
@@ -1450,11 +1513,11 @@ Scenes.conservatory = {
         if (G.route==='escort' && G.trust<39) await say([['S','From the bank, mildly: “Shallow-ish.”']]);
       }
     });
-    const back = saved ? this.stones.filter((x,xi)=>x.safe && this.reach(x, s))[0] : null;
+    const back = saved ? this.stones.filter(x=>x.safe && this.reach(x, s))[0] : null;
     if (saved && back){
       await this.hopTo(back, ()=>{ st.pos='stone'; st.stone=this.stones.indexOf(back); });
     } else {
-      await this.hopTo(this.BANK, ()=>{ st.pos='bank'; st.stone=-1; });
+      await this.hopTo(this.BANK, ()=>{ st.pos='bank'; st.stone=-1; }, 700);
     }
   },
 
@@ -1463,11 +1526,11 @@ Scenes.conservatory = {
                ['N','<span class="em">Warmth has fallen below half. In the full game, the human good ending just left the building.</span>']]);
   },
 
-  hopTo(target, apply){
+  hopTo(target, apply, dur=330){
     return new Promise(res=>{
       this.hopping = true;
       const sx = Tom.x, sy = Tom.y, dx = target.x - sx, dy = (target.y - (target===this.BANK ? 4 : 14)) - sy;
-      const t0 = performance.now(), dur = 330;
+      const t0 = performance.now();
       const step = now=>{
         const k = Math.min(1, (now-t0)/dur);
         Tom.x = sx + dx*k; Tom.y = sy + dy*k - Math.sin(k*Math.PI)*26;
@@ -1672,7 +1735,7 @@ function openNotebook(){
           <line x1="8" y1="42" x2="192" y2="42" stroke="var(--red)" stroke-width="1.6" stroke-dasharray="5 4"/>
         </svg>
         <p class="sub" style="text-align:center;margin:2px 0 8px">the ledger line — below it, the good ending does not survive</p>
-        <p class="stat" style="margin:6px 0 10px">warmth <b>${G.warmth}%</b> · lowest today <b>${G.minWarmth}%</b> · ledger ${G.ledgerTripped ? '<b>BELOW THE LINE</b>' : 'clean'}</p>
+        <p class="stat" style="margin:6px 0 10px">warmth <b>${G.warmth}%</b> · lowest today <b>${G.minWarmth}%</b> · ledger ${G.ledgerTripped ? '<b>BELOW THE LINE</b>' : 'clean'}<br>the brazier by the front door ${roomsCleared() >= 4 ? 'has <b>gone cold</b>' : 'still burns'}</p>
         <div class="people">
           <h3>People</h3>
           <p><b>Saskia Maren</b> — resting face: <span class="redline">${faceLabel()}</span>${G.route ? ' · '+(G.route==='escort'?'watching me':'in the kitchen') : ''}</p>
@@ -1680,10 +1743,16 @@ function openNotebook(){
           <p><b>Corwen Thrushwick</b> — <span class="note">missing, 61 days</span></p>
         </div>
       </div>
+      <div class="navRow">
+        <button class="navBtn" id="nbRestart">⟲ restart this area</button>
+        <button class="navBtn" id="nbTitle">↩ return to title</button>
+      </div>
       <button id="ovClose" aria-label="close">✕</button>
     </div>`;
   ov.classList.add('on');
   ov.addEventListener('click', e=>{ if (e.target === ov || e.target.id === 'ovClose') closeOverlay(); });
+  $('#nbRestart').addEventListener('click', e=>{ e.stopPropagation(); if (G.scene==='foyer' || G.scene==='conservatory') restartArea(); });
+  $('#nbTitle').addEventListener('click',   e=>{ e.stopPropagation(); returnToTitle(); });
 }
 function closeOverlay(){ $('#overlay').classList.remove('on'); $('#overlay').innerHTML=''; }
 addEventListener('keydown', e=>{ if (e.key === 'Escape') closeOverlay(); });
@@ -1715,6 +1784,25 @@ function resetGame(){
   Object.assign(G, {trust:50, warmth:100, minWarmth:100, route:null, flags:{}, seen:{},
     coldCount:0, ledgerTripped:false, cons:null});
   applyWarmth();
+}
+function roomsCleared(){
+  return ['memento','memento2','memento3','memento4','memento5','memento6','memento7','memento8']
+    .filter(k=>G.flags[k]).length;
+}
+function unstick(){
+  D.abort();
+  Tom.busy = false; Tom.pending = null;
+  Scenes.conservatory.hopping = false;
+}
+function returnToTitle(){
+  closeOverlay(); unstick();
+  resetGame(); Snd.stop(1); Snd.clockStop();
+  go('title');
+}
+function restartArea(){
+  closeOverlay(); unstick();
+  if (G.scene === 'conservatory') G.cons = null;
+  go(G.scene);
 }
 function endCard(){
   const route = G.route === 'alone' ? 'unaccompanied — the keeper trusts him, or has stopped arguing with the house' : 'under escort, keys in hand';
